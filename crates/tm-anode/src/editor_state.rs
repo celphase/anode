@@ -99,8 +99,15 @@ impl EditorState {
         self.caret = self.text.len();
     }
 
-    pub fn caret_pos(&self) -> usize {
+    pub fn caret(&self) -> usize {
         self.caret
+    }
+
+    pub fn move_caret(&mut self, direction: CaretDirection) {
+        match direction {
+            CaretDirection::Left => self.caret = (self.caret as i32 - 1).max(0) as usize,
+            CaretDirection::Right => self.caret = (self.caret + 1).min(self.text.len()),
+        }
     }
 
     pub unsafe fn load_from_asset(&mut self, data: &PluginData, tt: *mut TheTruthO, root: TtIdT) {
@@ -212,6 +219,11 @@ impl EditorState {
             }];
         }
     }
+}
+
+pub enum CaretDirection {
+    Left,
+    Right,
 }
 
 pub enum TextChange {

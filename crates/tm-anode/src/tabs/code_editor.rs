@@ -12,7 +12,8 @@ use machinery_api::{
     foundation::{ColorSrgbT, RectT, TheTruthO, TtIdT, UiO, Vec2T},
     plugins::ui::{
         Draw2dIbufferT, Draw2dStyleT, TabI, TabO, TabVt, TabVtRootT, UiApi, UiBuffersT, UiFontT,
-        UiStyleT, TM_UI_CURSOR_TEXT, TM_UI_EDIT_KEY_DELETE,
+        UiInputStateT, UiStyleT, TM_UI_CURSOR_TEXT, TM_UI_EDIT_KEY_DELETE, TM_UI_EDIT_KEY_LEFT,
+        TM_UI_EDIT_KEY_RIGHT,
     },
     the_machinery::{TabCreateContextT, TheMachineryTabVt},
 };
@@ -20,7 +21,7 @@ use tree_sitter_highlight::HighlightEvent;
 use ultraviolet::IVec2;
 
 use crate::{
-    editor_state::{EditorState, TextChange},
+    editor_state::{CaretDirection, EditorState, TextChange},
     fonts::ANODE_CODE_FONT,
     plugin::{AnodePlugin, PluginData},
 };
@@ -157,6 +158,8 @@ impl CodeEditorTab {
         state: &mut EditorState,
         metrics: &EditorMetrics,
     ) -> bool {
+        let input = &*buffers.input;
+
         let id = ui_api.make_id(ui);
         let mut active = ui_api.is_active(ui, id, ANODE_CODE_EDITOR_ACTIVE_DATA.hash);
 
@@ -173,7 +176,7 @@ impl CodeEditorTab {
         }
 
         // Activate or de-activate the component on mouse press
-        if (*buffers.input).left_mouse_pressed || (*buffers.input).right_mouse_pressed {
+        if input.left_mouse_pressed || input.right_mouse_pressed {
             if is_hovering {
                 should_activate = true;
             } else if (*buffers.activation).active == id {
@@ -190,7 +193,7 @@ impl CodeEditorTab {
 
         // If the text area is active
         if !active.is_null() {
-            self.handle_active_input(buffers, state, metrics);
+            self.handle_active_input(state, metrics, input);
         }
 
         !active.is_null()
@@ -198,14 +201,14 @@ impl CodeEditorTab {
 
     unsafe fn handle_active_input(
         &self,
-        buffers: &UiBuffersT,
         state: &mut EditorState,
         metrics: &EditorMetrics,
+        input: &UiInputStateT,
     ) {
-        if (*buffers.input).left_mouse_pressed {
+        if input.left_mouse_pressed {
             // Move the caret to the position the cursor is hovering over
-            let relative_x = (*buffers.input).mouse_pos.x - metrics.inner_rect.x;
-            let relative_y = (*buffers.input).mouse_pos.y - metrics.inner_rect.y;
+            let relative_x = input.mouse_pos.x - metrics.inner_rect.x;
+            let relative_y = input.mouse_pos.y - metrics.inner_rect.y;
             let line = ((relative_y - metrics.caret_start) / metrics.line_stride)
                 .floor()
                 .max(0.0) as usize;
@@ -218,8 +221,8 @@ impl CodeEditorTab {
         }
 
         // Handle text input
-        let end = (*buffers.input).num_text_input as usize;
-        for codepoint in &(*buffers.input).text_input[0..end] {
+        let end = input.num_text_input as usize;
+        for codepoint in &input.text_input[0..end] {
             match *codepoint {
                 // Newline
                 13 => state.apply_text_change(&self.data, TextChange::Character('\n')),
@@ -236,7 +239,15 @@ impl CodeEditorTab {
         }
 
         // Handle special edit input
-        if (*buffers.input).edit_key_pressed[TM_UI_EDIT_KEY_DELETE as usize] {
+        if input.edit_key_pressed[TM_UI_EDIT_KEY_LEFT as usize] {
+            state.move_caret(CaretDirection::Left);
+        }
+
+        if input.edit_key_pressed[TM_UI_EDIT_KEY_RIGHT as usize] {
+            state.move_caret(CaretDirection::Right);
+        }
+
+        if input.edit_key_pressed[TM_UI_EDIT_KEY_DELETE as usize] {
             state.apply_text_change(&self.data, TextChange::Delete);
         }
     }
@@ -276,7 +287,7 @@ impl CodeEditorTab {
         state: &EditorState,
         active: bool,
     ) {
-        let caret_pos = state.caret_pos();
+        let caret_pos = state.caret();
 
         let mut start = 0;
         for (i, line) in state.text().split('\n').enumerate() {
