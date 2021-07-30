@@ -12,8 +12,8 @@ use machinery_api::{
     foundation::{ColorSrgbT, RectT, TheTruthO, TtIdT, UiO, Vec2T},
     plugins::ui::{
         Draw2dIbufferT, Draw2dStyleT, TabI, TabO, TabVt, TabVtRootT, UiApi, UiBuffersT, UiFontT,
-        UiInputStateT, UiStyleT, TM_UI_CURSOR_TEXT, TM_UI_EDIT_KEY_DELETE, TM_UI_EDIT_KEY_LEFT,
-        TM_UI_EDIT_KEY_RIGHT,
+        UiInputStateT, UiStyleT, TM_UI_CURSOR_TEXT, TM_UI_EDIT_KEY_DELETE, TM_UI_EDIT_KEY_DOWN,
+        TM_UI_EDIT_KEY_LEFT, TM_UI_EDIT_KEY_RIGHT, TM_UI_EDIT_KEY_UP,
     },
     the_machinery::{TabCreateContextT, TheMachineryTabVt},
 };
@@ -217,7 +217,7 @@ impl CodeEditorTab {
                 .floor()
                 .max(0.0) as usize;
 
-            state.set_caret(line, column);
+            state.set_caret_line_column(line, column);
         }
 
         // Handle text input
@@ -242,9 +242,14 @@ impl CodeEditorTab {
         if input.edit_key_pressed[TM_UI_EDIT_KEY_LEFT as usize] {
             state.move_caret(CaretDirection::Left);
         }
-
         if input.edit_key_pressed[TM_UI_EDIT_KEY_RIGHT as usize] {
             state.move_caret(CaretDirection::Right);
+        }
+        if input.edit_key_pressed[TM_UI_EDIT_KEY_UP as usize] {
+            state.move_caret(CaretDirection::Up);
+        }
+        if input.edit_key_pressed[TM_UI_EDIT_KEY_DOWN as usize] {
+            state.move_caret(CaretDirection::Down);
         }
 
         if input.edit_key_pressed[TM_UI_EDIT_KEY_DELETE as usize] {

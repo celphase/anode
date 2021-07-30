@@ -56,7 +56,36 @@ impl EditorState {
         &self.highlights
     }
 
-    pub fn set_caret(&mut self, line: usize, column: usize) {
+    pub fn caret(&self) -> usize {
+        self.caret
+    }
+
+    fn caret_line_column(&self) -> (usize, usize) {
+        // Find the right line
+        let mut last_line_index = 0;
+        let mut last_length = 0;
+        let mut index = 0;
+        for (line_index, line) in self.text.split('\n').enumerate() {
+            // If the caret is within this line, return the value
+            if self.caret < index + line.len() + 1 {
+                return (line_index, self.caret - index);
+            }
+
+            last_line_index = line_index;
+            last_length = line.len();
+            index += line.len() + 1;
+        }
+
+        // Fall back to end of the last line
+        (last_line_index, last_length - 1)
+    }
+
+    fn set_caret(&mut self, index: usize) {
+        // TODO: Force set stored column
+        self.caret = index;
+    }
+
+    pub fn set_caret_line_column(&mut self, line: usize, column: usize) {
         // Find the starting index of the line
         let mut index = 0;
         let mut current_line = 0;
@@ -99,14 +128,22 @@ impl EditorState {
         self.caret = self.text.len();
     }
 
-    pub fn caret(&self) -> usize {
-        self.caret
-    }
-
     pub fn move_caret(&mut self, direction: CaretDirection) {
         match direction {
-            CaretDirection::Left => self.caret = (self.caret as i32 - 1).max(0) as usize,
-            CaretDirection::Right => self.caret = (self.caret + 1).min(self.text.len()),
+            CaretDirection::Left => self.set_caret((self.caret as i32 - 1).max(0) as usize),
+            CaretDirection::Right => self.set_caret((self.caret + 1).min(self.text.len())),
+            CaretDirection::Up => {
+                let (line, column) = self.caret_line_column();
+                if line > 0 {
+                    self.set_caret_line_column(line - 1, column);
+                } else {
+                    self.set_caret(0);
+                }
+            }
+            CaretDirection::Down => {
+                let (line, column) = self.caret_line_column();
+                self.set_caret_line_column(line + 1, column);
+            }
         }
     }
 
@@ -224,6 +261,8 @@ impl EditorState {
 pub enum CaretDirection {
     Left,
     Right,
+    Up,
+    Down,
 }
 
 pub enum TextChange {
