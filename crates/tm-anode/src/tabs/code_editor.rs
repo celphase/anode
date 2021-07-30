@@ -173,21 +173,8 @@ impl CodeEditorTab {
         }
 
         // Activate or de-activate the component on mouse press
-        if (*buffers.input).left_mouse_pressed {
+        if (*buffers.input).left_mouse_pressed || (*buffers.input).right_mouse_pressed {
             if is_hovering {
-                // Move the caret to the position the cursor is hovering over
-                let relative_x = (*buffers.input).mouse_pos.x - metrics.inner_rect.x;
-                let relative_y = (*buffers.input).mouse_pos.y - metrics.inner_rect.y;
-                let line = ((relative_y - metrics.caret_start) / metrics.line_stride)
-                    .floor()
-                    .max(0.0) as usize;
-                let offset = 4.0; // Feels just a bit better to have it offset a little
-                let column = ((relative_x + offset) / metrics.char_width)
-                    .floor()
-                    .max(0.0) as usize;
-
-                state.set_caret(line, column);
-
                 should_activate = true;
             } else if (*buffers.activation).active == id {
                 ui_api.clear_active(ui);
@@ -203,13 +190,33 @@ impl CodeEditorTab {
 
         // If the text area is active
         if !active.is_null() {
-            self.handle_active_input(buffers, state);
+            self.handle_active_input(buffers, state, metrics);
         }
 
         !active.is_null()
     }
 
-    unsafe fn handle_active_input(&self, buffers: &UiBuffersT, state: &mut EditorState) {
+    unsafe fn handle_active_input(
+        &self,
+        buffers: &UiBuffersT,
+        state: &mut EditorState,
+        metrics: &EditorMetrics,
+    ) {
+        if (*buffers.input).left_mouse_pressed {
+            // Move the caret to the position the cursor is hovering over
+            let relative_x = (*buffers.input).mouse_pos.x - metrics.inner_rect.x;
+            let relative_y = (*buffers.input).mouse_pos.y - metrics.inner_rect.y;
+            let line = ((relative_y - metrics.caret_start) / metrics.line_stride)
+                .floor()
+                .max(0.0) as usize;
+            let offset = 4.0; // Feels just a bit better to have it offset a little
+            let column = ((relative_x + offset) / metrics.char_width)
+                .floor()
+                .max(0.0) as usize;
+
+            state.set_caret(line, column);
+        }
+
         // Handle text input
         let end = (*buffers.input).num_text_input as usize;
         for codepoint in &(*buffers.input).text_input[0..end] {
