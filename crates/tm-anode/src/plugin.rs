@@ -39,6 +39,7 @@ impl Plugin for AnodePlugin {
         let mut registry_storage = RegistryStorage::new();
 
         let code_editor_tab_vtable = crate::tabs::register(registry, &mut registry_storage);
+        crate::fonts::register(registry, &mut registry_storage);
 
         let token_colors = vec![
             hex_token_color("comment", 0x6A9955FF),

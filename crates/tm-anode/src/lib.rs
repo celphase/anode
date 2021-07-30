@@ -1,6 +1,7 @@
 mod editor_state;
 mod plugin;
 mod tabs;
+mod fonts;
 
 use machinery_api::foundation::ColorSrgbT;
 

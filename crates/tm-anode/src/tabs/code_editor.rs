@@ -21,10 +21,9 @@ use ultraviolet::IVec2;
 
 use crate::{
     editor_state::{EditorState, TextChange},
+    fonts::ANODE_CODE_FONT,
     plugin::{AnodePlugin, PluginData},
 };
-
-use super::ANODE_CODE_FONT;
 
 pub fn create_vtable() -> TheMachineryTabVt {
     TheMachineryTabVt {
