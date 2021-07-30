@@ -318,15 +318,8 @@ impl CodeEditorTab {
         metrics: &EditorMetrics,
         state: &EditorState,
     ) {
-        let base_code_color = ColorSrgbT {
-            r: 220,
-            g: 220,
-            b: 220,
-            a: 255,
-        };
-
         let mut codepoints = Vec::new();
-        style.color = base_code_color;
+        style.color = BASE_CODE_COLOR;
 
         // Indexing ranges into the string repeatedly is slow as it's not an O(1) operation, instead
         // we'll progressively step through the string's iterator
@@ -354,7 +347,7 @@ impl CodeEditorTab {
                     style.color = self.data.token_colors[higlight.0].color;
                 }
                 HighlightEvent::HighlightEnd => {
-                    style.color = base_code_color;
+                    style.color = BASE_CODE_COLOR;
                 }
             }
         }
@@ -422,18 +415,13 @@ impl CodeEditorTab {
         pos: Vec2T,
     ) {
         let caret = RectT {
-            x: pos.x,
+            x: pos.x - 1.0,
             y: pos.y,
             w: 2.0,
             h: metrics.line_stride,
         };
         let style = Draw2dStyleT {
-            color: ColorSrgbT {
-                r: 200,
-                g: 200,
-                b: 200,
-                a: 255,
-            },
+            color: CARET_COLOR,
             ..Default::default()
         };
         (*self.data.apis.draw2d).fill_rect(buffers.vbuffer, ibuffer, &style, caret);
@@ -545,5 +533,20 @@ impl EditorMetrics {
     }
 }
 
+const BASE_CODE_COLOR: ColorSrgbT = ColorSrgbT {
+    r: 220,
+    g: 220,
+    b: 220,
+    a: 255,
+};
+
+const CARET_COLOR: ColorSrgbT = ColorSrgbT {
+    r: 200,
+    g: 200,
+    b: 200,
+    a: 255,
+};
+
 pub const ANODE_CODE_EDITOR_TAB: Identifier = identifier!("tm_anode_code_editor_tab");
+
 const ANODE_CODE_EDITOR_ACTIVE_DATA: Identifier = identifier!("tm_anode_code_editor_data_t");
