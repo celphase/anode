@@ -3,10 +3,10 @@
 Anode is a text editor plugin for [The Machinery] game engine.
 
 - `tm-anode` - Anode text editor plugin for The Machinery.
-- [![Crates.io](https://img.shields.io/crates/v/tm-anode-api.svg?label=tm-anode-api)](https://crates.io/crates/tm-anode-api) [![docs.rs](https://docs.rs/tm-anode-api/badge.svg)](https://docs.rs/tm-anode-api/) -  API for the tm-anode The Machinery plugin.
+- [![Crates.io](https://img.shields.io/crates/v/tm-anode-api.svg?label=tm-anode-api)](https://crates.io/crates/tm-anode-api) [![docs.rs](https://docs.rs/tm-anode-api/badge.svg)](https://docs.rs/tm-anode-api/) - API for the tm-anode The Machinery plugin.
 - `tm-textfile` - Text file plugin for The Machinery that showcases basic usage of `tm-anode-api`.
 
-[The Machinery]: https://ourmachinery.com/
+[the machinery]: https://ourmachinery.com/
 
 ## Building and Installing
 
@@ -17,9 +17,14 @@ Anode is built using the [Cargo] package manager for [Rust], and can be automati
 cargo make machinery
 ```
 
-[Cargo]: https://doc.rust-lang.org/cargo/
-[Rust]: https://www.rust-lang.org/
+[cargo]: https://doc.rust-lang.org/cargo/
+[rust]: https://www.rust-lang.org/
 [cargo-make]: https://github.com/sagiegurari/cargo-make
+
+## Extending
+
+Anode provides a public API that can be used to extend it.
+The API is documented in the `tm-anode-api` crate, and is compatible with the C ABI.
 
 ## License
 
