@@ -93,6 +93,10 @@ impl EditorState {
         self.caret_column = column;
     }
 
+    /// Sets the caret to a given line and column, clamping to end of line where necessary.
+    ///
+    /// Caret column isn't set, so up/down movement will be preserved.
+    /// If you need to set this as well, call [`Self::set_caret_column_to_current`].
     pub fn set_caret_line_column(&mut self, line: usize, column: usize) {
         // Find the starting index of the line
         let mut index = 0;
