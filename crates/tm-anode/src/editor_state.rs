@@ -263,7 +263,7 @@ impl EditorState {
         if let Some(config) = &self.highlight_config {
             self.highlights = self
                 .highlighter
-                .highlight(config, &self.text.as_bytes(), None, |_| None)
+                .highlight(config, self.text.as_bytes(), None, |_| None)
                 .unwrap()
                 .map(|v| v.unwrap())
                 .collect()
@@ -337,9 +337,9 @@ unsafe fn higlight_config_from_asset(
 
     let mut highlight_config = HighlightConfiguration::new(
         interface.language,
-        std::str::from_utf8(&highlight_query).unwrap(),
-        std::str::from_utf8(&injection_query).unwrap(),
-        std::str::from_utf8(&locals_query).unwrap(),
+        std::str::from_utf8(highlight_query).unwrap(),
+        std::str::from_utf8(injection_query).unwrap(),
+        std::str::from_utf8(locals_query).unwrap(),
     )
     .unwrap();
     let highlight_names: Vec<String> = data

@@ -281,7 +281,7 @@ impl CodeEditorTab {
                 x: metrics.rect.x,
                 y: metrics.rect.y + metrics.first_baseline + (metrics.line_stride * i as f32),
             };
-            self.draw_text(&buffers, ibuffer, &style, pos, glyphs, &digits);
+            self.draw_text(buffers, ibuffer, style, pos, glyphs, &digits);
         }
     }
 
@@ -390,7 +390,7 @@ impl CodeEditorTab {
                 self.draw_text(
                     buffers,
                     ibuffer,
-                    &style,
+                    style,
                     Vec2T {
                         x: metrics.inner_rect.x + (position.x as f32 * metrics.char_width),
                         y: metrics.inner_rect.y
@@ -398,7 +398,7 @@ impl CodeEditorTab {
                             + (position.y as f32 * metrics.line_stride),
                     },
                     glyphs,
-                    &codepoints,
+                    codepoints,
                 );
 
                 // Add to the positions
