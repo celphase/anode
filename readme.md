@@ -2,6 +2,8 @@
 
 Anode is a text editor plugin for [The Machinery] game engine.
 
+- [![Crates.io](https://img.shields.io/crates/v/tm-anode-api.svg?label=tm-anode-api)](https://crates.io/crates/tm-anode-api) [![docs.rs](https://docs.rs/tm-anode-api/badge.svg)](https://docs.rs/tm-anode-api/) -  API for the tm-anode The Machinery plugin.
+
 [The Machinery]: https://ourmachinery.com/
 
 ## Building and Installing
