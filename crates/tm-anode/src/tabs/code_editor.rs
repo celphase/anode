@@ -218,6 +218,7 @@ impl CodeEditorTab {
                 .max(0.0) as usize;
 
             state.set_caret_line_column(line, column);
+            state.set_caret_column_to_current();
         }
 
         // Handle text input

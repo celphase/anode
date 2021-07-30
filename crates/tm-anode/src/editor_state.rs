@@ -25,6 +25,8 @@ pub(crate) struct EditorState {
     text: String,
     highlights: Vec<HighlightEvent>,
     caret: usize,
+    /// The caret column position will be preserved when moving up/down.
+    caret_column: usize,
 }
 
 impl EditorState {
@@ -37,6 +39,7 @@ impl EditorState {
             text: String::new(),
             highlights: Vec::new(),
             caret: 0,
+            caret_column: 0,
         }
     }
 
@@ -81,8 +84,13 @@ impl EditorState {
     }
 
     fn set_caret(&mut self, index: usize) {
-        // TODO: Force set stored column
         self.caret = index;
+        self.set_caret_column_to_current();
+    }
+
+    pub fn set_caret_column_to_current(&mut self) {
+        let (_, column) = self.caret_line_column();
+        self.caret_column = column;
     }
 
     pub fn set_caret_line_column(&mut self, line: usize, column: usize) {
@@ -133,16 +141,23 @@ impl EditorState {
             CaretDirection::Left => self.set_caret((self.caret as i32 - 1).max(0) as usize),
             CaretDirection::Right => self.set_caret((self.caret + 1).min(self.text.len())),
             CaretDirection::Up => {
-                let (line, column) = self.caret_line_column();
+                let (line, _) = self.caret_line_column();
                 if line > 0 {
-                    self.set_caret_line_column(line - 1, column);
+                    self.set_caret_line_column(line - 1, self.caret_column);
                 } else {
+                    // If we're already on the first line, force to top
                     self.set_caret(0);
                 }
             }
             CaretDirection::Down => {
-                let (line, column) = self.caret_line_column();
-                self.set_caret_line_column(line + 1, column);
+                let (line, _) = self.caret_line_column();
+                let lines = self.text.split('\n').count();
+                if line < lines - 1 {
+                    self.set_caret_line_column(line + 1, self.caret_column);
+                } else {
+                    // If we're already on the last line, force to end
+                    self.set_caret(self.text.len());
+                }
             }
         }
     }
