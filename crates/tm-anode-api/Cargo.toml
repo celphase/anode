@@ -1,6 +1,6 @@
 [package]
 name = "tm-anode-api"
-version = "0.2.0"
+version = "0.3.0"
 license = "MIT OR Apache-2.0"
 description = "API for the tm-anode The Machinery plugin"
 repository = "https://github.com/celphase/anode"
@@ -10,4 +10,3 @@ edition = "2018"
 const-cstr = "0.3.0"
 machinery = "0.9.0"
 machinery-api = "0.2.0"
-tree-sitter = "=0.19.3"

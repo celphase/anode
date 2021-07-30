@@ -280,12 +280,11 @@ dependencies = [
 
 [[package]]
 name = "tm-anode-api"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "const-cstr",
  "machinery",
  "machinery-api",
- "tree-sitter",
 ]
 
 [[package]]
