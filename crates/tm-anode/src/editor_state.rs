@@ -212,7 +212,10 @@ impl EditorState {
         self.title = title_from_asset(data, tt, root);
 
         // Set up code highlighting
-        self.highlight_config = higlight_config_from_raw(data, &*(*aspect_i).highlighting);
+        self.highlight_config = (*aspect_i)
+            .highlighting
+            .as_ref()
+            .map(|v| higlight_config_from_raw(data, v));
         self.highlight();
 
         Ok(())
@@ -332,7 +335,7 @@ unsafe fn title_from_asset(data: &PluginData, tt: *mut TheTruthO, root: TtIdT) -
 unsafe fn higlight_config_from_raw(
     data: &PluginData,
     highlighting: &Highlighting,
-) -> Option<HighlightConfiguration> {
+) -> HighlightConfiguration {
     // Load the config from the aspect
     let highlight_query = std::slice::from_raw_parts(
         highlighting.highlight_query,
@@ -359,5 +362,5 @@ unsafe fn higlight_config_from_raw(
         .collect();
     highlight_config.configure(&highlight_names);
 
-    Some(highlight_config)
+    highlight_config
 }
