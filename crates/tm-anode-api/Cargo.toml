@@ -1,0 +1,10 @@
+[package]
+name = "tm-anode-api"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+const-cstr = "0.3.0"
+machinery = "0.9.0"
+machinery-api = "0.2.0"
+tree-sitter = "=0.19.3"

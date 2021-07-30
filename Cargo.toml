@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/tm-anode",
+    "crates/tm-anode-api",
+]
+resolver = "2"

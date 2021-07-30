@@ -1,0 +1,16 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[tasks.build]
+command = "cargo"
+args = ["build"]
+workspace = false
+
+[tasks.machinery]
+script_runner = "@duckscript"
+script = '''
+tm_sdk_dir = get_env TM_SDK_DIR
+cp ./target/debug/tm_anode.dll ${tm_sdk_dir}/bin/plugins/tm_anode.dll
+'''
+dependencies = ["build"]
+workspace = false

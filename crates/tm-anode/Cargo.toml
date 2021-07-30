@@ -1,0 +1,18 @@
+[package]
+name = "tm-anode"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+const-cstr = "0.3.0"
+dwrote = "0.11.0"
+machinery = "0.9.0"
+machinery-api = "0.2.0"
+tree-sitter = "=0.19.3" # newer version currently incompatible with highlighting
+tree-sitter-highlight = "0.19.2"
+tracing = "0.1.26"
+ultraviolet = { version = "0.8.1", features = ["int"] }
+tm-anode-api = { path = "../tm-anode-api" }
