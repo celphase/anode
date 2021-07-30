@@ -11,6 +11,7 @@ script_runner = "@duckscript"
 script = '''
 tm_sdk_dir = get_env TM_SDK_DIR
 cp ./target/debug/tm_anode.dll ${tm_sdk_dir}/bin/plugins/tm_anode.dll
+cp ./target/debug/tm_textfile.dll ${tm_sdk_dir}/bin/plugins/tm_textfile.dll
 '''
 dependencies = ["build"]
 workspace = false
