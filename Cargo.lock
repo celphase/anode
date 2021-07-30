@@ -50,10 +50,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "eyre"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "221239d1d5ea86bf5d6f91c9d6bc3646ffe471b08ff9b0f91c44f115ac969d2b"
+dependencies = [
+ "indenter",
+ "once_cell",
+]
+
+[[package]]
 name = "fuchsia-cprng"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
+
+[[package]]
+name = "indenter"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce23b50ad8242c51a442f3ff322d56b02f08852c77e4c0b4d3fd684abc89c683"
 
 [[package]]
 name = "lazy_static"
@@ -114,6 +130,12 @@ checksum = "fa29fe48ea8985625453d7753b2007f6b6d7f35ef1b06c9298eeb33330bfe404"
 dependencies = [
  "rand 0.3.23",
 ]
+
+[[package]]
+name = "once_cell"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
 
 [[package]]
 name = "pin-project-lite"
@@ -246,6 +268,7 @@ version = "0.1.0"
 dependencies = [
  "const-cstr",
  "dwrote",
+ "eyre",
  "machinery",
  "machinery-api",
  "tm-anode-api",
@@ -257,7 +280,7 @@ dependencies = [
 
 [[package]]
 name = "tm-anode-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "const-cstr",
  "machinery",

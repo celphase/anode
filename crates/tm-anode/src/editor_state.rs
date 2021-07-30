@@ -3,16 +3,17 @@ use std::{
     os::raw::c_char,
 };
 
+use eyre::{eyre, Result};
 use machinery::{tt_id_eq, tt_id_type};
 use machinery_api::foundation::{TheTruthO, TtIdT, TtUndoScopeT, TM_TT_ASPECT__FILE_EXTENSION};
-use tm_anode_api::{AnodeHighlightingAspectI, ASPECT_ANODE_HIGHLIGHTING};
+use tm_anode_api::{AnodeAspectI, Highlighting, ASPECT_ANODE};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter};
 
 use crate::plugin::PluginData;
 
 pub(crate) struct EditorState {
     // Associated target asset
-    asset: Option<(*mut TheTruthO, TtIdT)>,
+    asset: Option<(*mut TheTruthO, TtIdT, u32)>,
 
     // Metadata
     title: CString,
@@ -43,7 +44,7 @@ impl EditorState {
         }
     }
 
-    pub fn asset(&self) -> Option<(*mut TheTruthO, TtIdT)> {
+    pub fn asset(&self) -> Option<(*mut TheTruthO, TtIdT, u32)> {
         self.asset
     }
 
@@ -166,21 +167,36 @@ impl EditorState {
         }
     }
 
-    pub unsafe fn load_from_asset(&mut self, data: &PluginData, tt: *mut TheTruthO, root: TtIdT) {
+    pub unsafe fn load_from_asset(
+        &mut self,
+        data: &PluginData,
+        tt: *mut TheTruthO,
+        root: TtIdT,
+    ) -> Result<()> {
         // If we've already got the same object, don't do anything
         if let Some(asset) = self.asset.as_ref() {
             if asset.0 == tt && tt_id_eq(asset.1, root) {
-                return;
+                return Ok(());
             }
         }
 
+        // Get the aspect data out of the asset, which tells us how to open it
+        let aspect_i = (*data.apis.truth).get_aspect(tt, tt_id_type(root), ASPECT_ANODE.hash)
+            as *const AnodeAspectI;
+        if aspect_i.is_null() {
+            return Err(eyre!(
+                "Asset does not have required tm_anode_aspect_i aspect"
+            ));
+        }
+
         // Reset data that's no longer valid
-        self.asset = Some((tt, root));
+        let property = (*aspect_i).property;
+        self.asset = Some((tt, root, property));
         self.caret = 0;
 
         // Get the data out of the asset
         let object = (*data.apis.truth).read(tt, root);
-        let buffer = (*data.apis.truth).get_buffer(tt, object, 0);
+        let buffer = (*data.apis.truth).get_buffer(tt, object, property);
 
         let mut size = 0;
         let buffers = (*data.apis.truth).buffers(tt);
@@ -196,8 +212,10 @@ impl EditorState {
         self.title = title_from_asset(data, tt, root);
 
         // Set up code highlighting
-        self.highlight_config = higlight_config_from_asset(data, tt, root);
+        self.highlight_config = higlight_config_from_raw(data, &*(*aspect_i).highlighting);
         self.highlight();
+
+        Ok(())
     }
 
     pub fn apply_text_change(&mut self, data: &PluginData, change: TextChange) {
@@ -233,7 +251,7 @@ impl EditorState {
     }
 
     fn commit_to_asset(&self, data: &PluginData) {
-        let (tt, asset) = if let Some(asset) = self.asset {
+        let (tt, asset, property) = if let Some(asset) = self.asset {
             asset
         } else {
             return;
@@ -254,7 +272,7 @@ impl EditorState {
 
             // Write the buffer to the truth data for the asset
             let object = (*data.apis.truth).write(tt, asset);
-            (*data.apis.truth).set_buffer(tt, object, 0, buffer_id);
+            (*data.apis.truth).set_buffer(tt, object, property, buffer_id);
             (*data.apis.truth).commit(tt, object, TtUndoScopeT { u64_: 0 });
         }
     }
@@ -311,32 +329,24 @@ unsafe fn title_from_asset(data: &PluginData, tt: *mut TheTruthO, root: TtIdT) -
     CString::new(buffer).unwrap()
 }
 
-unsafe fn higlight_config_from_asset(
+unsafe fn higlight_config_from_raw(
     data: &PluginData,
-    tt: *mut TheTruthO,
-    root: TtIdT,
+    highlighting: &Highlighting,
 ) -> Option<HighlightConfiguration> {
-    // Get the highlighting interface from the object
-    let highlighting_i =
-        (*data.apis.truth).get_aspect(tt, tt_id_type(root), ASPECT_ANODE_HIGHLIGHTING.hash)
-            as *const AnodeHighlightingAspectI;
-
-    if highlighting_i.is_null() {
-        return None;
-    }
-
-    let interface = &*highlighting_i;
-
     // Load the config from the aspect
-    let highlight_query =
-        std::slice::from_raw_parts(interface.highlight_query, interface.highlight_query_len);
-    let injection_query =
-        std::slice::from_raw_parts(interface.injection_query, interface.injection_query_len);
+    let highlight_query = std::slice::from_raw_parts(
+        highlighting.highlight_query,
+        highlighting.highlight_query_len,
+    );
+    let injection_query = std::slice::from_raw_parts(
+        highlighting.injection_query,
+        highlighting.injection_query_len,
+    );
     let locals_query =
-        std::slice::from_raw_parts(interface.locals_query, interface.locals_query_len);
+        std::slice::from_raw_parts(highlighting.locals_query, highlighting.locals_query_len);
 
     let mut highlight_config = HighlightConfiguration::new(
-        interface.language,
+        highlighting.language,
         std::str::from_utf8(highlight_query).unwrap(),
         std::str::from_utf8(injection_query).unwrap(),
         std::str::from_utf8(locals_query).unwrap(),

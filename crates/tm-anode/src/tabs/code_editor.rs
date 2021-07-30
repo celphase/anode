@@ -17,6 +17,7 @@ use machinery_api::{
     },
     the_machinery::{TabCreateContextT, TheMachineryTabVt},
 };
+use tracing::{event, Level};
 use tree_sitter_highlight::HighlightEvent;
 use ultraviolet::IVec2;
 
@@ -467,7 +468,15 @@ impl CodeEditorTab {
 
     unsafe fn set_root(&self, tt: *mut TheTruthO, root: TtIdT) {
         let mut state = self.state.lock().unwrap();
-        state.load_from_asset(&self.data, tt, root);
+        let result = state.load_from_asset(&self.data, tt, root);
+
+        if let Err(error) = result {
+            event!(Level::ERROR, "{}", error);
+            (*self.data.apis.docking).remove_tab(&self.interface as *const _ as *mut _);
+
+            // This should be safe as long as we don't access the struct after this
+            (*self.interface.vt).destroy.unwrap()(self.interface.inst);
+        }
     }
 
     fn root(&self) -> TabVtRootT {
