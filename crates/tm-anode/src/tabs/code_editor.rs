@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-use machinery::{export_singleton_fns, identifier, Identifier};
+use machinery::{export_instance_fns, export_singleton_fns, identifier, Identifier};
 use machinery_api::{
     foundation::{ColorSrgbT, RectT, TheTruthO, TtIdT, UiO, Vec2T},
     plugins::ui::{
@@ -34,10 +34,10 @@ pub fn create_vtable() -> TheMachineryTabVt {
             name_hash: ANODE_CODE_EDITOR_TAB.hash,
             create: Some(AnodePlugin::code_editor_create),
             destroy: Some(code_editor_destroy),
-            title: Some(code_editor_title),
-            ui: Some(code_editor_ui),
-            set_root: Some(code_editor_set_root),
-            root: Some(code_editor_root),
+            title: Some(CodeEditorTab::title),
+            ui: Some(CodeEditorTab::ui),
+            set_root: Some(CodeEditorTab::set_root),
+            root: Some(CodeEditorTab::root),
             ..Default::default()
         },
         ..Default::default()
@@ -59,31 +59,8 @@ impl AnodePlugin {
     }
 }
 
-// TODO: Figure out a good way to wrap & set these automatically
-
 unsafe extern "C" fn code_editor_destroy(inst: *mut TabO) {
     let _tab: Box<CodeEditorTab> = Box::from_raw(inst as *mut _);
-}
-
-unsafe extern "C" fn code_editor_title(inst: *mut TabO, _ui: *mut UiO) -> *const i8 {
-    (*(inst as *const CodeEditorTab)).title()
-}
-
-unsafe extern "C" fn code_editor_ui(
-    inst: *mut TabO,
-    ui: *mut UiO,
-    uistyle: *const UiStyleT,
-    rect: RectT,
-) {
-    (*(inst as *const CodeEditorTab)).ui(ui, uistyle, rect);
-}
-
-unsafe extern "C" fn code_editor_set_root(inst: *mut TabO, tt: *mut TheTruthO, root: TtIdT) {
-    (*(inst as *const CodeEditorTab)).set_root(tt, root)
-}
-
-unsafe extern "C" fn code_editor_root(inst: *mut TabO) -> TabVtRootT {
-    (*(inst as *const CodeEditorTab)).root()
 }
 
 pub struct CodeEditorTab {
@@ -110,8 +87,11 @@ impl CodeEditorTab {
             state: Mutex::new(EditorState::new()),
         }
     }
+}
 
-    fn title(&self) -> *const i8 {
+#[export_instance_fns(TabO)]
+impl CodeEditorTab {
+    fn title(&self, _ui: *mut UiO) -> *const i8 {
         self.state.lock().unwrap().title().as_ptr()
     }
 
@@ -150,6 +130,34 @@ impl CodeEditorTab {
         self.draw_top_decorations(&buffers, ibuffer, &metrics, &state, active);
     }
 
+    unsafe fn set_root(&self, tt: *mut TheTruthO, root: TtIdT) {
+        let mut state = self.state.lock().unwrap();
+        let result = state.load_from_asset(&self.data, tt, root);
+
+        if let Err(error) = result {
+            event!(Level::ERROR, "{}", error);
+            (*self.data.apis.docking).remove_tab(&self.interface as *const _ as *mut _);
+
+            // This should be safe as long as we don't access the struct after this
+            (*self.interface.vt).destroy.unwrap()(self.interface.inst);
+        }
+    }
+
+    fn root(&self) -> TabVtRootT {
+        let state = self.state.lock().unwrap();
+        state
+            .asset()
+            .map(|asset| TabVtRootT {
+                tt: asset.0,
+                root: asset.1,
+                internal_root: asset.1,
+                counter: 0,
+            })
+            .unwrap_or_default()
+    }
+}
+
+impl CodeEditorTab {
     unsafe fn handle_input(
         &self,
         ui_api: &UiApi,
@@ -464,32 +472,6 @@ impl CodeEditorTab {
             glyphs.as_ptr(),
             glyphs.len() as u32,
         );
-    }
-
-    unsafe fn set_root(&self, tt: *mut TheTruthO, root: TtIdT) {
-        let mut state = self.state.lock().unwrap();
-        let result = state.load_from_asset(&self.data, tt, root);
-
-        if let Err(error) = result {
-            event!(Level::ERROR, "{}", error);
-            (*self.data.apis.docking).remove_tab(&self.interface as *const _ as *mut _);
-
-            // This should be safe as long as we don't access the struct after this
-            (*self.interface.vt).destroy.unwrap()(self.interface.inst);
-        }
-    }
-
-    fn root(&self) -> TabVtRootT {
-        let state = self.state.lock().unwrap();
-        state
-            .asset()
-            .map(|asset| TabVtRootT {
-                tt: asset.0,
-                root: asset.1,
-                internal_root: asset.1,
-                counter: 0,
-            })
-            .unwrap_or_default()
     }
 }
 
