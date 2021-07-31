@@ -8,6 +8,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 const-cstr = "0.3.0"
-machinery = "0.9.0"
-machinery-api = "0.2.0"
+machinery = "0.10.0"
+machinery-api = "0.3.0"
 tm-anode-api = { path = "../tm-anode-api" }

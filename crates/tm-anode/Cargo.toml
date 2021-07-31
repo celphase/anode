@@ -10,8 +10,8 @@ crate-type = ["cdylib"]
 const-cstr = "0.3.0"
 dwrote = "0.11.0"
 eyre = "0.6.5"
-machinery = "0.9.0"
-machinery-api = "0.2.0"
+machinery = "0.10.0"
+machinery-api = "0.3.0"
 tree-sitter = "=0.19.3" # newer version currently incompatible with highlighting
 tree-sitter-highlight = "0.19.2"
 tracing = "0.1.26"
