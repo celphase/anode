@@ -126,7 +126,16 @@ impl CodeEditorTab {
         // Draw parts
         let mut glyphs = Vec::new();
         self.draw_bottom_decorations(&buffers, ibuffer, &mut style, &mut glyphs, &metrics, &state);
-        self.draw_code(&buffers, ibuffer, &mut style, &mut glyphs, &metrics, &state);
+        self.draw_code(
+            ui_api,
+            ui,
+            &buffers,
+            ibuffer,
+            &mut style,
+            &mut glyphs,
+            &metrics,
+            &state,
+        );
         self.draw_top_decorations(&buffers, ibuffer, &metrics, &state, active);
     }
 
@@ -324,8 +333,11 @@ impl CodeEditorTab {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     unsafe fn draw_code(
         &self,
+        ui_api: &UiApi,
+        ui: *mut UiO,
         buffers: &UiBuffersT,
         ibuffer: *mut Draw2dIbufferT,
         style: &mut Draw2dStyleT,
@@ -357,6 +369,7 @@ impl CodeEditorTab {
                         &mut position,
                         segment,
                     );
+                    ui_api.reserve_draw_memory(ui);
                 }
                 HighlightEvent::HighlightStart(higlight) => {
                     style.color = self.data.token_colors[higlight.0].color;
