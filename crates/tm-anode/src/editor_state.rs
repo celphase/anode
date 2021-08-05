@@ -225,12 +225,12 @@ impl EditorState {
         match change {
             TextChange::Character(character) => {
                 self.text.insert(self.caret, character);
-                self.caret += 1;
+                self.set_caret(self.caret + 1);
             }
             TextChange::Backspace => {
                 if self.caret >= 1 {
                     self.text.remove(self.caret - 1);
-                    self.caret -= 1;
+                    self.set_caret(self.caret - 1);
                 } else {
                     // Can't backspace at start of file
                     return;

@@ -85,9 +85,9 @@ checksum = "320cfe77175da3a483efed4bc0adc1968ca050b098ce4f2f1c13a56626128790"
 
 [[package]]
 name = "machinery"
-version = "0.10.0"
+version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2003a4870b3d96f0a54c9202817f228f9f1607c75f133f5d90f70281740929cd"
+checksum = "43875d3563ddaf699b5d45e04615d7683fc6e1d7df738b5910dc1a503323adf4"
 dependencies = [
  "const-cstr",
  "machinery-api",
@@ -97,9 +97,9 @@ dependencies = [
 
 [[package]]
 name = "machinery-api"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0a49be71636024db1e803d8fb313c8c30a38bf256bd612bb389f89c514ae81a"
+checksum = "c189e2974db82e099a3740a81358a342df273ed234a242bdea8d99595c7b74c7"
 dependencies = [
  "const-cstr",
 ]
