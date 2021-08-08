@@ -115,7 +115,7 @@ impl CodeEditorTab {
         let ibuffer = *buffers.ibuffers.offset((*ui_style).buffer as isize);
         let code_font = ui_api.font(ui, ANODE_CODE_FONT.hash, 10);
 
-        let metrics = EditorMetrics::calculate(&buffers, rect, &code_font, self.scroll_y());
+        let metrics = EditorMetrics::calculate(&buffers, rect, &code_font);
         let ctx = UiCtx {
             ui,
             ui_style,
@@ -128,7 +128,8 @@ impl CodeEditorTab {
             (*self.data.apis.draw2d).add_clip_rect(ctx.buffers.vbuffer, ctx.metrics.textarea_rect);
 
         // Process input affecting the UI
-        let active = self.handle_input(ui_api, &ctx, &mut document);
+        let line_count = document.text().split('\n').count();
+        let active = self.handle_input(ui_api, &ctx, &mut document, line_count);
 
         // Fill the style for drawing
         let mut style = Draw2dStyleT {
@@ -149,7 +150,7 @@ impl CodeEditorTab {
 
         // Draw parts
         let mut glyphs = Vec::new();
-        let line_count = self.draw_decorations(&ctx, &mut style, &mut glyphs, &document);
+        self.draw_decorations(&ctx, &mut style, &mut glyphs, line_count);
         self.draw_code(ui_api, &ctx, style, textarea_clip, &mut glyphs, &document);
 
         if active {
@@ -200,6 +201,7 @@ impl CodeEditorTab {
         ui_api: &UiApi,
         ctx: &UiCtx,
         document: &mut DocumentState,
+        line_count: usize,
     ) -> bool {
         let input = &*ctx.buffers.input;
 
@@ -216,7 +218,15 @@ impl CodeEditorTab {
 
         if is_hovering {
             ui_api.set_cursor(ctx.ui, TM_UI_CURSOR_TEXT);
-            self.set_scroll_y(self.scroll_y() + -input.mouse_wheel);
+
+            if input.mouse_wheel != 0.0 {
+                let new_scroll_y = self.scroll_y() - input.mouse_wheel * 10.0;
+                self.set_scroll_y(
+                    new_scroll_y
+                        .max(0.0)
+                        .min((line_count - 1) as f32 * ctx.metrics.line_stride),
+                );
+            }
         }
 
         // Activate or de-activate the component on mouse press
@@ -252,7 +262,7 @@ impl CodeEditorTab {
         if input.left_mouse_pressed {
             // Move the caret to the position the cursor is hovering over
             let relative_x = input.mouse_pos.x - metrics.textarea_rect.x;
-            let relative_y = input.mouse_pos.y - metrics.textarea_rect.y - metrics.scroll_y_offset;
+            let relative_y = input.mouse_pos.y - metrics.textarea_rect.y + self.scroll_y();
             let line = ((relative_y - metrics.caret_start) / metrics.line_stride)
                 .floor()
                 .max(0.0) as usize;
@@ -307,8 +317,8 @@ impl CodeEditorTab {
         ctx: &UiCtx,
         style: &mut Draw2dStyleT,
         glyphs: &mut Vec<u16>,
-        document: &DocumentState,
-    ) -> usize {
+        line_count: usize,
+    ) {
         style.color = ColorSrgbT {
             r: 120,
             g: 120,
@@ -316,7 +326,6 @@ impl CodeEditorTab {
             a: 255,
         };
 
-        let line_count = document.text().split('\n').count();
         for i in 0..line_count {
             // Draw the gutter (left side line numbers)
             let digits = digits(i as u32 + 1);
@@ -325,7 +334,7 @@ impl CodeEditorTab {
                 y: ctx.metrics.tab_rect.y
                     + ctx.metrics.first_baseline
                     + (ctx.metrics.line_stride * i as f32)
-                    + ctx.metrics.scroll_y_offset,
+                    - self.scroll_y(),
             };
             self.draw_text(ctx, style, pos, glyphs, &digits);
         }
@@ -344,8 +353,6 @@ impl CodeEditorTab {
             h: ctx.metrics.textarea_rect.h,
         };
         (*self.data.apis.draw2d).fill_rect(ctx.buffers.vbuffer, ctx.ibuffer, style, rect);
-
-        line_count
     }
 
     unsafe fn draw_caret(&self, ctx: &UiCtx, document: &DocumentState, textarea_clip: u32) {
@@ -356,7 +363,7 @@ impl CodeEditorTab {
             y: ctx.metrics.textarea_rect.y
                 + ctx.metrics.caret_start
                 + (ctx.metrics.line_stride * line as f32)
-                + ctx.metrics.scroll_y_offset,
+                - self.scroll_y(),
         };
 
         let caret = RectT {
@@ -386,8 +393,8 @@ impl CodeEditorTab {
         let scrollbar = UiScrollbarT {
             rect,
             min: 0.0,
-            max: line_count as f32 + lines_per_height,
-            size: lines_per_height,
+            max: ((line_count - 1) as f32 + lines_per_height) * ctx.metrics.line_stride,
+            size: lines_per_height * ctx.metrics.line_stride,
             ..Default::default()
         };
         ui_api.scrollbar_y(ctx.ui, ctx.ui_style, &scrollbar, &mut scroll_y);
@@ -472,7 +479,7 @@ impl CodeEditorTab {
                         y: ctx.metrics.textarea_rect.y
                             + ctx.metrics.first_baseline
                             + (position.y as f32 * ctx.metrics.line_stride)
-                            + ctx.metrics.scroll_y_offset,
+                            - self.scroll_y(),
                     },
                     glyphs,
                     codepoints,
@@ -548,16 +555,10 @@ struct EditorMetrics {
     tab_rect: RectT,
     textarea_rect: RectT,
     scrollbar_width: f32,
-    scroll_y_offset: f32,
 }
 
 impl EditorMetrics {
-    pub unsafe fn calculate(
-        buffers: &UiBuffersT,
-        tab_rect: RectT,
-        font: &UiFontT,
-        scroll_y: f32,
-    ) -> Self {
+    pub unsafe fn calculate(buffers: &UiBuffersT, tab_rect: RectT, font: &UiFontT) -> Self {
         let font_info = &*(*font.font).info;
 
         let scrollbar_width = *buffers
@@ -585,7 +586,6 @@ impl EditorMetrics {
             tab_rect,
             textarea_rect,
             scrollbar_width,
-            scroll_y_offset: -line_stride * scroll_y,
         }
     }
 }
