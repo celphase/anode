@@ -2,7 +2,7 @@ use std::{
     ops::Rem,
     ptr::null_mut,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
         Arc, Mutex,
     },
 };
@@ -72,7 +72,8 @@ pub struct CodeEditorTab {
     data: Arc<PluginData>,
     save_interface: *mut AssetSaveI,
     auto_activate: AtomicBool,
-    state: Mutex<DocumentState>,
+    document: Mutex<DocumentState>,
+    scroll: AtomicU32,
 }
 
 impl CodeEditorTab {
@@ -90,7 +91,8 @@ impl CodeEditorTab {
             data,
             save_interface: (*context).save_interface,
             auto_activate: AtomicBool::new(false),
-            state: Mutex::new(DocumentState::new()),
+            document: Mutex::new(DocumentState::new()),
+            scroll: AtomicU32::new(0),
         }
     }
 }
@@ -98,7 +100,7 @@ impl CodeEditorTab {
 #[export_instance_fns(TabO)]
 impl CodeEditorTab {
     fn title(&self, _ui: *mut UiO) -> *const i8 {
-        self.state
+        self.document
             .lock()
             .unwrap()
             .refresh_title(&self.data, self.save_interface)
@@ -107,15 +109,21 @@ impl CodeEditorTab {
 
     unsafe fn ui(&self, ui: *mut UiO, ui_style: *const UiStyleT, rect: RectT) {
         let ui_api = &*self.data.apis.ui;
-        let mut state = self.state.lock().unwrap();
+        let mut document = self.document.lock().unwrap();
 
         let buffers = (*self.data.apis.ui).buffers(ui);
         let ibuffer = *buffers.ibuffers.offset((*ui_style).buffer as isize);
         let code_font = ui_api.font(ui, ANODE_CODE_FONT.hash, 10);
 
         let metrics = EditorMetrics::calculate(&buffers, rect, &code_font);
-        let active =
-            self.handle_input(ui_api, ui, (*ui_style).clip, &buffers, &mut state, &metrics);
+        let active = self.handle_input(
+            ui_api,
+            ui,
+            (*ui_style).clip,
+            &buffers,
+            &mut document,
+            &metrics,
+        );
 
         let ctx = UiCtx {
             ui,
@@ -144,19 +152,19 @@ impl CodeEditorTab {
 
         // Draw parts
         let mut glyphs = Vec::new();
-        let line_count = self.draw_decorations(&ctx, &mut style, &mut glyphs, &state);
-        self.draw_code(ui_api, &ctx, &mut style, &mut glyphs, &state);
+        let line_count = self.draw_decorations(&ctx, &mut style, &mut glyphs, &document);
+        self.draw_code(ui_api, &ctx, &mut style, &mut glyphs, &document);
 
         if active {
-            self.draw_caret(&ctx, &state, (*ui_style).clip);
+            self.draw_caret(&ctx, &document, (*ui_style).clip);
         }
 
         self.draw_scrollbar(ui_api, &ctx, line_count);
     }
 
     unsafe fn set_root(&self, tt: *mut TheTruthO, root: TtIdT) {
-        let mut state = self.state.lock().unwrap();
-        let result = state.load_from_asset(&self.data, tt, root);
+        let mut document = self.document.lock().unwrap();
+        let result = document.load_from_asset(&self.data, tt, root);
 
         if let Err(error) = result {
             event!(Level::ERROR, "{}", error);
@@ -168,8 +176,8 @@ impl CodeEditorTab {
     }
 
     fn root(&self) -> TabVtRootT {
-        let state = self.state.lock().unwrap();
-        state
+        let document = self.document.lock().unwrap();
+        document
             .asset()
             .map(|asset| TabVtRootT {
                 tt: asset.0,
@@ -188,7 +196,7 @@ impl CodeEditorTab {
         ui: *mut UiO,
         clip: u32,
         buffers: &UiBuffersT,
-        state: &mut DocumentState,
+        document: &mut DocumentState,
         metrics: &EditorMetrics,
     ) -> bool {
         let input = &*buffers.input;
@@ -226,7 +234,7 @@ impl CodeEditorTab {
 
         // If the text area is active
         if !active.is_null() {
-            self.handle_active_input(state, metrics, input);
+            self.handle_active_input(document, metrics, input);
         }
 
         !active.is_null()
@@ -234,7 +242,7 @@ impl CodeEditorTab {
 
     unsafe fn handle_active_input(
         &self,
-        state: &mut DocumentState,
+        document: &mut DocumentState,
         metrics: &EditorMetrics,
         input: &UiInputStateT,
     ) {
@@ -250,8 +258,8 @@ impl CodeEditorTab {
                 .floor()
                 .max(0.0) as usize;
 
-            state.set_caret_line_column(line, column);
-            state.set_caret_column_to_current();
+            document.set_caret_line_column(line, column);
+            document.set_caret_column_to_current();
         }
 
         // Handle text input
@@ -259,35 +267,35 @@ impl CodeEditorTab {
         for codepoint in &input.text_input[0..end] {
             match *codepoint {
                 // Newline
-                13 => state.apply_text_change(&self.data, TextChange::Character('\n')),
+                13 => document.apply_text_change(&self.data, TextChange::Character('\n')),
                 // Backspace
-                8 => state.apply_text_change(&self.data, TextChange::Backspace),
+                8 => document.apply_text_change(&self.data, TextChange::Backspace),
                 // Ignore all other control characters
                 v if v < 32 => continue,
                 // Any text input
                 _ => {
                     let character = std::char::from_u32(*codepoint).unwrap_or(' ');
-                    state.apply_text_change(&self.data, TextChange::Character(character));
+                    document.apply_text_change(&self.data, TextChange::Character(character));
                 }
             }
         }
 
         // Handle special edit input
         if input.edit_key_pressed[TM_UI_EDIT_KEY_LEFT as usize] {
-            state.move_caret(CaretDirection::Left);
+            document.move_caret(CaretDirection::Left);
         }
         if input.edit_key_pressed[TM_UI_EDIT_KEY_RIGHT as usize] {
-            state.move_caret(CaretDirection::Right);
+            document.move_caret(CaretDirection::Right);
         }
         if input.edit_key_pressed[TM_UI_EDIT_KEY_UP as usize] {
-            state.move_caret(CaretDirection::Up);
+            document.move_caret(CaretDirection::Up);
         }
         if input.edit_key_pressed[TM_UI_EDIT_KEY_DOWN as usize] {
-            state.move_caret(CaretDirection::Down);
+            document.move_caret(CaretDirection::Down);
         }
 
         if input.edit_key_pressed[TM_UI_EDIT_KEY_DELETE as usize] {
-            state.apply_text_change(&self.data, TextChange::Delete);
+            document.apply_text_change(&self.data, TextChange::Delete);
         }
     }
 
@@ -296,7 +304,7 @@ impl CodeEditorTab {
         ctx: &UiCtx,
         style: &mut Draw2dStyleT,
         glyphs: &mut Vec<u16>,
-        state: &DocumentState,
+        document: &DocumentState,
     ) -> usize {
         style.color = ColorSrgbT {
             r: 120,
@@ -305,7 +313,7 @@ impl CodeEditorTab {
             a: 255,
         };
 
-        let line_count = state.text().split('\n').count();
+        let line_count = document.text().split('\n').count();
         for i in 0..line_count {
             // Draw the gutter (left side line numbers)
             let digits = digits(i as u32 + 1);
@@ -336,8 +344,8 @@ impl CodeEditorTab {
         line_count
     }
 
-    unsafe fn draw_caret(&self, ctx: &UiCtx, state: &DocumentState, clip: u32) {
-        let (line, column) = state.caret_line_column();
+    unsafe fn draw_caret(&self, ctx: &UiCtx, document: &DocumentState, clip: u32) {
+        let (line, column) = document.caret_line_column();
 
         let pos = Vec2T {
             x: ctx.metrics.textarea_rect.x + (column as f32 * ctx.metrics.char_width),
@@ -361,7 +369,8 @@ impl CodeEditorTab {
     }
 
     unsafe fn draw_scrollbar(&self, ui_api: &UiApi, ctx: &UiCtx, line_count: usize) {
-        let mut scroll_y = 0.0;
+        let mut scroll_y = f32::from_bits(self.scroll.load(Ordering::Relaxed));
+
         let lines_per_height = ctx.metrics.textarea_rect.h / ctx.metrics.line_stride;
         let rect = RectT {
             x: ctx.metrics.tab_rect.x + ctx.metrics.tab_rect.w - ctx.metrics.scrollbar_width,
@@ -377,6 +386,7 @@ impl CodeEditorTab {
             ..Default::default()
         };
         ui_api.scrollbar_y(ctx.ui, ctx.ui_style, &scrollbar, &mut scroll_y);
+        self.scroll.store(scroll_y.to_bits(), Ordering::Relaxed);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -386,19 +396,19 @@ impl CodeEditorTab {
         ctx: &UiCtx,
         style: &mut Draw2dStyleT,
         glyphs: &mut Vec<u16>,
-        state: &DocumentState,
+        document: &DocumentState,
     ) {
         let mut codepoints = Vec::new();
         style.color = BASE_CODE_COLOR;
 
         // Indexing ranges into the string repeatedly is slow as it's not an O(1) operation, instead
         // we'll progressively step through the string's iterator
-        let mut chars = state.text().chars();
+        let mut chars = document.text().chars();
 
         // Text position cursor for rendering, this is how we layout the text
         let mut position = IVec2::new(0, 0);
 
-        for event in state.highlights() {
+        for event in document.highlights() {
             match event {
                 HighlightEvent::Source { start, end } => {
                     let segment = (&mut chars).take(end - start);
