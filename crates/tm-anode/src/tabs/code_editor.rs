@@ -22,7 +22,7 @@ use tree_sitter_highlight::HighlightEvent;
 use ultraviolet::IVec2;
 
 use crate::{
-    editor_state::{CaretDirection, EditorState, TextChange},
+    document::{CaretDirection, DocumentState, TextChange},
     fonts::ANODE_CODE_FONT,
     plugin::{AnodePlugin, PluginData},
 };
@@ -67,7 +67,7 @@ pub struct CodeEditorTab {
     interface: TabI,
     data: Arc<PluginData>,
     auto_activate: AtomicBool,
-    state: Mutex<EditorState>,
+    state: Mutex<DocumentState>,
 }
 
 impl CodeEditorTab {
@@ -84,7 +84,7 @@ impl CodeEditorTab {
             interface,
             data,
             auto_activate: AtomicBool::new(false),
-            state: Mutex::new(EditorState::new()),
+            state: Mutex::new(DocumentState::new()),
         }
     }
 }
@@ -177,7 +177,7 @@ impl CodeEditorTab {
         ui: *mut UiO,
         clip: u32,
         buffers: &UiBuffersT,
-        state: &mut EditorState,
+        state: &mut DocumentState,
         metrics: &EditorMetrics,
     ) -> bool {
         let input = &*buffers.input;
@@ -223,7 +223,7 @@ impl CodeEditorTab {
 
     unsafe fn handle_active_input(
         &self,
-        state: &mut EditorState,
+        state: &mut DocumentState,
         metrics: &EditorMetrics,
         input: &UiInputStateT,
     ) {
@@ -287,7 +287,7 @@ impl CodeEditorTab {
         style: &mut Draw2dStyleT,
         glyphs: &mut Vec<u16>,
         metrics: &EditorMetrics,
-        state: &EditorState,
+        state: &DocumentState,
     ) {
         style.color = ColorSrgbT {
             r: 120,
@@ -312,7 +312,7 @@ impl CodeEditorTab {
         buffers: &UiBuffersT,
         ibuffer: *mut Draw2dIbufferT,
         metrics: &EditorMetrics,
-        state: &EditorState,
+        state: &DocumentState,
         clip: u32,
     ) {
         let (line, column) = state.caret_line_column();
@@ -346,7 +346,7 @@ impl CodeEditorTab {
         style: &mut Draw2dStyleT,
         glyphs: &mut Vec<u16>,
         metrics: &EditorMetrics,
-        state: &EditorState,
+        state: &DocumentState,
     ) {
         let mut codepoints = Vec::new();
         style.color = BASE_CODE_COLOR;

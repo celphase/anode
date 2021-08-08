@@ -11,7 +11,7 @@ use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter}
 
 use crate::plugin::PluginData;
 
-pub(crate) struct EditorState {
+pub(crate) struct DocumentState {
     // Associated target asset
     asset: Option<(*mut TheTruthO, TtIdT, u32)>,
 
@@ -30,7 +30,7 @@ pub(crate) struct EditorState {
     caret_column: usize,
 }
 
-impl EditorState {
+impl DocumentState {
     pub fn new() -> Self {
         Self {
             asset: None,
