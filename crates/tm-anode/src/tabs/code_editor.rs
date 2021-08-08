@@ -73,7 +73,7 @@ pub struct CodeEditorTab {
     save_interface: *mut AssetSaveI,
     auto_activate: AtomicBool,
     document: Mutex<DocumentState>,
-    scroll: AtomicU32,
+    scroll_y: AtomicU32,
 }
 
 impl CodeEditorTab {
@@ -92,7 +92,7 @@ impl CodeEditorTab {
             save_interface: (*context).save_interface,
             auto_activate: AtomicBool::new(false),
             document: Mutex::new(DocumentState::new()),
-            scroll: AtomicU32::new(0),
+            scroll_y: AtomicU32::new(0),
         }
     }
 }
@@ -190,6 +190,14 @@ impl CodeEditorTab {
 }
 
 impl CodeEditorTab {
+    fn scroll_y(&self) -> f32 {
+        f32::from_bits(self.scroll_y.load(Ordering::Relaxed))
+    }
+
+    fn set_scroll_y(&self, value: f32) {
+        self.scroll_y.store(value.to_bits(), Ordering::Relaxed)
+    }
+
     unsafe fn handle_input(
         &self,
         ui_api: &UiApi,
@@ -214,6 +222,7 @@ impl CodeEditorTab {
 
         if is_hovering {
             ui_api.set_cursor(ui, TM_UI_CURSOR_TEXT);
+            self.set_scroll_y(self.scroll_y() + -input.mouse_wheel);
         }
 
         // Activate or de-activate the component on mouse press
@@ -369,7 +378,7 @@ impl CodeEditorTab {
     }
 
     unsafe fn draw_scrollbar(&self, ui_api: &UiApi, ctx: &UiCtx, line_count: usize) {
-        let mut scroll_y = f32::from_bits(self.scroll.load(Ordering::Relaxed));
+        let mut scroll_y = self.scroll_y();
 
         let lines_per_height = ctx.metrics.textarea_rect.h / ctx.metrics.line_stride;
         let rect = RectT {
@@ -386,7 +395,7 @@ impl CodeEditorTab {
             ..Default::default()
         };
         ui_api.scrollbar_y(ctx.ui, ctx.ui_style, &scrollbar, &mut scroll_y);
-        self.scroll.store(scroll_y.to_bits(), Ordering::Relaxed);
+        self.set_scroll_y(scroll_y);
     }
 
     #[allow(clippy::too_many_arguments)]
