@@ -117,6 +117,14 @@ impl CodeEditorTab {
         let active =
             self.handle_input(ui_api, ui, (*ui_style).clip, &buffers, &mut state, &metrics);
 
+        let ctx = UiCtx {
+            ui,
+            ui_style,
+            buffers,
+            ibuffer,
+            metrics,
+        };
+
         // Fill the style for drawing
         let mut style = Draw2dStyleT {
             font: code_font.font,
@@ -136,24 +144,14 @@ impl CodeEditorTab {
 
         // Draw parts
         let mut glyphs = Vec::new();
-        let line_count =
-            self.draw_decorations(&buffers, ibuffer, &mut style, &mut glyphs, &metrics, &state);
-        self.draw_code(
-            ui_api,
-            ui,
-            &buffers,
-            ibuffer,
-            &mut style,
-            &mut glyphs,
-            &metrics,
-            &state,
-        );
+        let line_count = self.draw_decorations(&ctx, &mut style, &mut glyphs, &state);
+        self.draw_code(ui_api, &ctx, &mut style, &mut glyphs, &state);
 
         if active {
-            self.draw_caret(&buffers, ibuffer, &metrics, &state, (*ui_style).clip);
+            self.draw_caret(&ctx, &state, (*ui_style).clip);
         }
 
-        self.draw_scrollbar(ui_api, ui, ui_style, &metrics, line_count);
+        self.draw_scrollbar(ui_api, &ctx, line_count);
     }
 
     unsafe fn set_root(&self, tt: *mut TheTruthO, root: TtIdT) {
@@ -295,11 +293,9 @@ impl CodeEditorTab {
 
     unsafe fn draw_decorations(
         &self,
-        buffers: &UiBuffersT,
-        ibuffer: *mut Draw2dIbufferT,
+        ctx: &UiCtx,
         style: &mut Draw2dStyleT,
         glyphs: &mut Vec<u16>,
-        metrics: &EditorMetrics,
         state: &DocumentState,
     ) -> usize {
         style.color = ColorSrgbT {
@@ -314,10 +310,12 @@ impl CodeEditorTab {
             // Draw the gutter (left side line numbers)
             let digits = digits(i as u32 + 1);
             let pos = Vec2T {
-                x: metrics.tab_rect.x,
-                y: metrics.tab_rect.y + metrics.first_baseline + (metrics.line_stride * i as f32),
+                x: ctx.metrics.tab_rect.x,
+                y: ctx.metrics.tab_rect.y
+                    + ctx.metrics.first_baseline
+                    + (ctx.metrics.line_stride * i as f32),
             };
-            self.draw_text(buffers, ibuffer, style, pos, glyphs, &digits);
+            self.draw_text(ctx, style, pos, glyphs, &digits);
         }
 
         // Draw the right side ruler
@@ -328,80 +326,66 @@ impl CodeEditorTab {
             a: 255,
         };
         let rect = RectT {
-            x: metrics.textarea_rect.x + (metrics.char_width * 100.0).round(),
-            y: metrics.textarea_rect.y,
+            x: ctx.metrics.textarea_rect.x + (ctx.metrics.char_width * 100.0).round(),
+            y: ctx.metrics.textarea_rect.y,
             w: 1.0,
-            h: metrics.textarea_rect.h,
+            h: ctx.metrics.textarea_rect.h,
         };
-        (*self.data.apis.draw2d).fill_rect(buffers.vbuffer, ibuffer, style, rect);
+        (*self.data.apis.draw2d).fill_rect(ctx.buffers.vbuffer, ctx.ibuffer, style, rect);
 
         line_count
     }
 
-    unsafe fn draw_caret(
-        &self,
-        buffers: &UiBuffersT,
-        ibuffer: *mut Draw2dIbufferT,
-        metrics: &EditorMetrics,
-        state: &DocumentState,
-        clip: u32,
-    ) {
+    unsafe fn draw_caret(&self, ctx: &UiCtx, state: &DocumentState, clip: u32) {
         let (line, column) = state.caret_line_column();
 
         let pos = Vec2T {
-            x: metrics.textarea_rect.x + (column as f32 * metrics.char_width),
-            y: metrics.textarea_rect.y + metrics.caret_start + (metrics.line_stride * line as f32),
+            x: ctx.metrics.textarea_rect.x + (column as f32 * ctx.metrics.char_width),
+            y: ctx.metrics.textarea_rect.y
+                + ctx.metrics.caret_start
+                + (ctx.metrics.line_stride * line as f32),
         };
 
         let caret = RectT {
             x: pos.x - 1.0,
             y: pos.y,
             w: 2.0,
-            h: metrics.line_stride,
+            h: ctx.metrics.line_stride,
         };
         let style = Draw2dStyleT {
             color: CARET_COLOR,
             clip,
             ..Default::default()
         };
-        (*self.data.apis.draw2d).fill_rect(buffers.vbuffer, ibuffer, &style, caret);
+        (*self.data.apis.draw2d).fill_rect(ctx.buffers.vbuffer, ctx.ibuffer, &style, caret);
     }
 
-    unsafe fn draw_scrollbar(
-        &self,
-        ui_api: &UiApi,
-        ui: *mut UiO,
-        ui_style: *const UiStyleT,
-        metrics: &EditorMetrics,
-        line_count: usize,
-    ) {
+    unsafe fn draw_scrollbar(&self, ui_api: &UiApi, ctx: &UiCtx, line_count: usize) {
         let mut scroll_y = 0.0;
-        let lines_per_height = metrics.textarea_rect.h / metrics.line_stride;
+        let lines_per_height = ctx.metrics.textarea_rect.h / ctx.metrics.line_stride;
+        let rect = RectT {
+            x: ctx.metrics.tab_rect.x + ctx.metrics.tab_rect.w - ctx.metrics.scrollbar_width,
+            y: ctx.metrics.tab_rect.y,
+            w: ctx.metrics.scrollbar_width,
+            h: ctx.metrics.tab_rect.h,
+        };
         let scrollbar = UiScrollbarT {
-            rect: RectT {
-                x: metrics.tab_rect.x + metrics.tab_rect.w - metrics.scrollbar_width,
-                y: metrics.tab_rect.y,
-                w: metrics.scrollbar_width,
-                h: metrics.tab_rect.h,
-            },
+            rect,
             min: 0.0,
             max: line_count as f32 + lines_per_height,
             size: lines_per_height,
             ..Default::default()
         };
-        ui_api.scrollbar_y(ui, ui_style, &scrollbar, &mut scroll_y);
+        ui_api.scrollbar_y(ctx.ui, ctx.ui_style, &scrollbar, &mut scroll_y);
     }
 
     #[allow(clippy::too_many_arguments)]
     unsafe fn draw_code(
         &self,
         ui_api: &UiApi,
-        ui: *mut UiO,
-        buffers: &UiBuffersT,
-        ibuffer: *mut Draw2dIbufferT,
+        ctx: &UiCtx,
         style: &mut Draw2dStyleT,
         glyphs: &mut Vec<u16>,
-        metrics: &EditorMetrics,
         state: &DocumentState,
     ) {
         let mut codepoints = Vec::new();
@@ -418,17 +402,8 @@ impl CodeEditorTab {
             match event {
                 HighlightEvent::Source { start, end } => {
                     let segment = (&mut chars).take(end - start);
-                    self.draw_segment(
-                        buffers,
-                        ibuffer,
-                        style,
-                        metrics,
-                        glyphs,
-                        &mut codepoints,
-                        &mut position,
-                        segment,
-                    );
-                    ui_api.reserve_draw_memory(ui);
+                    self.draw_segment(ctx, style, glyphs, &mut codepoints, &mut position, segment);
+                    ui_api.reserve_draw_memory(ctx.ui);
                 }
                 HighlightEvent::HighlightStart(higlight) => {
                     style.color = self.data.token_colors[higlight.0].color;
@@ -440,13 +415,10 @@ impl CodeEditorTab {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     unsafe fn draw_segment(
         &self,
-        buffers: &UiBuffersT,
-        ibuffer: *mut Draw2dIbufferT,
+        ctx: &UiCtx,
         style: &mut Draw2dStyleT,
-        metrics: &EditorMetrics,
         glyphs: &mut Vec<u16>,
         codepoints: &mut Vec<u32>,
         position: &mut IVec2,
@@ -469,14 +441,14 @@ impl CodeEditorTab {
             if !codepoints.is_empty() {
                 // Draw the text
                 self.draw_text(
-                    buffers,
-                    ibuffer,
+                    ctx,
                     style,
                     Vec2T {
-                        x: metrics.textarea_rect.x + (position.x as f32 * metrics.char_width),
-                        y: metrics.textarea_rect.y
-                            + metrics.first_baseline
-                            + (position.y as f32 * metrics.line_stride),
+                        x: ctx.metrics.textarea_rect.x
+                            + (position.x as f32 * ctx.metrics.char_width),
+                        y: ctx.metrics.textarea_rect.y
+                            + ctx.metrics.first_baseline
+                            + (position.y as f32 * ctx.metrics.line_stride),
                     },
                     glyphs,
                     codepoints,
@@ -496,8 +468,7 @@ impl CodeEditorTab {
 
     unsafe fn draw_text(
         &self,
-        buffers: &UiBuffersT,
-        ibuffer: *mut Draw2dIbufferT,
+        ctx: &UiCtx,
         style: &Draw2dStyleT,
         mut pos: Vec2T,
         glyphs: &mut Vec<u16>,
@@ -517,8 +488,8 @@ impl CodeEditorTab {
 
         // Draw the glyphs
         (*self.data.apis.draw2d).draw_glyphs(
-            buffers.vbuffer,
-            ibuffer,
+            ctx.buffers.vbuffer,
+            ctx.ibuffer,
             style,
             pos,
             glyphs.as_ptr(),
@@ -574,7 +545,7 @@ impl EditorMetrics {
         let line_offset = char_width * 7.0;
         let mut textarea_rect = tab_rect;
         textarea_rect.x += line_offset;
-        textarea_rect.w -= line_offset + scrollbar_width;
+        textarea_rect.w -= line_offset + scrollbar_width - 1.0;
 
         Self {
             first_baseline: first_line,
@@ -586,6 +557,14 @@ impl EditorMetrics {
             scrollbar_width,
         }
     }
+}
+
+struct UiCtx {
+    ui: *mut UiO,
+    ui_style: *const UiStyleT,
+    buffers: UiBuffersT,
+    ibuffer: *mut Draw2dIbufferT,
+    metrics: EditorMetrics,
 }
 
 const BASE_CODE_COLOR: ColorSrgbT = ColorSrgbT {
