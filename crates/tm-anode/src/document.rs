@@ -327,11 +327,11 @@ unsafe fn title_from_asset(
     let extension_i =
         (*data.apis.truth).get_aspect(tt, tt_id_type(root), TM_TT_ASPECT__FILE_EXTENSION)
             as *const c_char;
+    buffer.truncate(buffer.iter().position(|v| *v == 0).unwrap_or(128));
 
     if !extension_i.is_null() {
         let extension = CStr::from_ptr(extension_i);
 
-        buffer.truncate(buffer.iter().position(|v| *v == 0).unwrap_or(128));
         buffer.push(b'.');
         buffer.extend_from_slice(extension.to_bytes());
 
