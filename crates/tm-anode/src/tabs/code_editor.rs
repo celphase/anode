@@ -135,7 +135,7 @@ impl CodeEditorTab {
 
         // Draw parts
         let mut glyphs = Vec::new();
-        self.draw_bottom_decorations(&buffers, ibuffer, &mut style, &mut glyphs, &metrics, &state);
+        self.draw_decorations(&buffers, ibuffer, &mut style, &mut glyphs, &metrics, &state);
         self.draw_code(
             ui_api,
             ui,
@@ -289,7 +289,7 @@ impl CodeEditorTab {
         }
     }
 
-    unsafe fn draw_bottom_decorations(
+    unsafe fn draw_decorations(
         &self,
         buffers: &UiBuffersT,
         ibuffer: *mut Draw2dIbufferT,
@@ -314,6 +314,21 @@ impl CodeEditorTab {
             };
             self.draw_text(buffers, ibuffer, style, pos, glyphs, &digits);
         }
+
+        // Draw the right side ruler
+        style.color = ColorSrgbT {
+            r: 80,
+            g: 80,
+            b: 80,
+            a: 255,
+        };
+        let rect = RectT {
+            x: metrics.inner_rect.x + (metrics.char_width * 100.0).round(),
+            y: metrics.inner_rect.y,
+            w: 1.0,
+            h: metrics.inner_rect.h,
+        };
+        (*self.data.apis.draw2d).fill_rect(buffers.vbuffer, ibuffer, style, rect);
     }
 
     unsafe fn draw_caret(
