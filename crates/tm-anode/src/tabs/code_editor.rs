@@ -10,10 +10,13 @@ use std::{
 use machinery::{export_instance_fns, export_singleton_fns, identifier, Identifier};
 use machinery_api::{
     foundation::{ColorSrgbT, RectT, TheTruthO, TtIdT, UiO, Vec2T},
-    plugins::ui::{
-        Draw2dIbufferT, Draw2dStyleT, TabI, TabO, TabVt, TabVtRootT, UiApi, UiBuffersT, UiFontT,
-        UiInputStateT, UiStyleT, TM_UI_CURSOR_TEXT, TM_UI_EDIT_KEY_DELETE, TM_UI_EDIT_KEY_DOWN,
-        TM_UI_EDIT_KEY_LEFT, TM_UI_EDIT_KEY_RIGHT, TM_UI_EDIT_KEY_UP,
+    plugins::{
+        editor_views::AssetSaveI,
+        ui::{
+            Draw2dIbufferT, Draw2dStyleT, TabI, TabO, TabVt, TabVtRootT, UiApi, UiBuffersT,
+            UiFontT, UiInputStateT, UiStyleT, TM_UI_CURSOR_TEXT, TM_UI_EDIT_KEY_DELETE,
+            TM_UI_EDIT_KEY_DOWN, TM_UI_EDIT_KEY_LEFT, TM_UI_EDIT_KEY_RIGHT, TM_UI_EDIT_KEY_UP,
+        },
     },
     the_machinery::{TabCreateContextT, TheMachineryTabVt},
 };
@@ -66,6 +69,7 @@ unsafe extern "C" fn code_editor_destroy(inst: *mut TabO) {
 pub struct CodeEditorTab {
     interface: TabI,
     data: Arc<PluginData>,
+    save_interface: *mut AssetSaveI,
     auto_activate: AtomicBool,
     state: Mutex<DocumentState>,
 }
@@ -83,6 +87,7 @@ impl CodeEditorTab {
         Self {
             interface,
             data,
+            save_interface: (*context).save_interface,
             auto_activate: AtomicBool::new(false),
             state: Mutex::new(DocumentState::new()),
         }
@@ -92,7 +97,11 @@ impl CodeEditorTab {
 #[export_instance_fns(TabO)]
 impl CodeEditorTab {
     fn title(&self, _ui: *mut UiO) -> *const i8 {
-        self.state.lock().unwrap().title().as_ptr()
+        self.state
+            .lock()
+            .unwrap()
+            .refresh_title(&self.data, self.save_interface)
+            .as_ptr()
     }
 
     unsafe fn ui(&self, ui: *mut UiO, ui_style: *const UiStyleT, rect: RectT) {

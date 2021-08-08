@@ -5,7 +5,10 @@ use std::{
 
 use eyre::{eyre, Result};
 use machinery::{tt_id_eq, tt_id_type};
-use machinery_api::foundation::{TheTruthO, TtIdT, TtUndoScopeT, TM_TT_ASPECT__FILE_EXTENSION};
+use machinery_api::{
+    foundation::{TheTruthO, TtIdT, TtUndoScopeT, TM_TT_ASPECT__FILE_EXTENSION},
+    plugins::editor_views::{AssetSaveI, TM_ASSET_SAVE_STATUS__SAVED},
+};
 use tm_anode_api::{AnodeAspectI, Highlighting, ASPECT_ANODE};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter};
 
@@ -48,7 +51,13 @@ impl DocumentState {
         self.asset
     }
 
-    pub fn title(&self) -> &CStr {
+    pub fn refresh_title(&mut self, data: &PluginData, save_interface: *mut AssetSaveI) -> &CStr {
+        if let Some((tt, root, _property)) = self.asset {
+            self.title = unsafe { title_from_asset(data, tt, root, save_interface) };
+        } else {
+            self.title = CString::new("untitled").unwrap();
+        }
+
         self.title.as_c_str()
     }
 
@@ -204,9 +213,6 @@ impl DocumentState {
         // Trim carriage returns just in case git mangled the file
         self.text.retain(|v| v != '\r');
 
-        // Get the title out of the asset
-        self.title = title_from_asset(data, tt, root);
-
         // Set up code highlighting
         self.highlight_config = (*aspect_i)
             .highlighting
@@ -307,7 +313,12 @@ pub enum TextChange {
     Delete,
 }
 
-unsafe fn title_from_asset(data: &PluginData, tt: *mut TheTruthO, root: TtIdT) -> CString {
+unsafe fn title_from_asset(
+    data: &PluginData,
+    tt: *mut TheTruthO,
+    root: TtIdT,
+    save_interface: *mut AssetSaveI,
+) -> CString {
     // Fetch the name for the asset
     let mut buffer = vec![0u8; 128];
     (*data.apis.properties_view).get_display_name(tt, root, buffer.as_mut_ptr() as *mut i8, 128);
@@ -323,6 +334,14 @@ unsafe fn title_from_asset(data: &PluginData, tt: *mut TheTruthO, root: TtIdT) -
         buffer.truncate(buffer.iter().position(|v| *v == 0).unwrap_or(128));
         buffer.push(b'.');
         buffer.extend_from_slice(extension.to_bytes());
+
+        // Add a star if unsaved
+        let owner = (*data.apis.truth).owner(tt, root);
+        let is_unsaved = (*save_interface).status.unwrap()((*save_interface).inst, owner)
+            != TM_ASSET_SAVE_STATUS__SAVED;
+        if is_unsaved {
+            buffer.push(b'*');
+        }
     }
 
     CString::new(buffer).unwrap()
