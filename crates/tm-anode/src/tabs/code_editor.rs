@@ -8,18 +8,7 @@ use std::{
 };
 
 use machinery::{export_instance_fns, export_singleton_fns, identifier, Identifier};
-use machinery_api::{
-    foundation::{ColorSrgbT, RectT, TheTruthO, TtIdT, UiO, Vec2T},
-    plugins::{
-        editor_views::AssetSaveI,
-        ui::{
-            Draw2dIbufferT, Draw2dStyleT, TabI, TabO, TabVt, TabVtRootT, UiApi, UiBuffersT,
-            UiFontT, UiInputStateT, UiStyleT, TM_UI_CURSOR_TEXT, TM_UI_EDIT_KEY_DELETE,
-            TM_UI_EDIT_KEY_DOWN, TM_UI_EDIT_KEY_LEFT, TM_UI_EDIT_KEY_RIGHT, TM_UI_EDIT_KEY_UP,
-        },
-    },
-    the_machinery::{TabCreateContextT, TheMachineryTabVt},
-};
+use machinery_api::{foundation::{ColorSrgbT, RectT, TheTruthO, TtIdT, UiO, Vec2T}, plugins::{editor_views::AssetSaveI, ui::{Draw2dIbufferT, Draw2dStyleT, TM_UI_CURSOR_TEXT, TM_UI_EDIT_KEY_DELETE, TM_UI_EDIT_KEY_DOWN, TM_UI_EDIT_KEY_LEFT, TM_UI_EDIT_KEY_RIGHT, TM_UI_EDIT_KEY_UP, TM_UI_METRIC_SCROLLBAR_WIDTH, TabI, TabO, TabVt, TabVtRootT, UiApi, UiBuffersT, UiFontT, UiInputStateT, UiScrollbarT, UiStyleT}}, the_machinery::{TabCreateContextT, TheMachineryTabVt}};
 use tracing::{event, Level};
 use tree_sitter_highlight::HighlightEvent;
 use ultraviolet::IVec2;
@@ -112,7 +101,8 @@ impl CodeEditorTab {
         let ibuffer = *buffers.ibuffers.offset((*ui_style).buffer as isize);
         let code_font = ui_api.font(ui, ANODE_CODE_FONT.hash, 10);
 
-        let metrics = EditorMetrics::calculate(rect, &code_font);
+        let scrollbar_width = *buffers.metrics.offset(TM_UI_METRIC_SCROLLBAR_WIDTH as isize);
+        let metrics = EditorMetrics::calculate(rect, &code_font, scrollbar_width);
         let active =
             self.handle_input(ui_api, ui, (*ui_style).clip, &buffers, &mut state, &metrics);
 
@@ -150,6 +140,22 @@ impl CodeEditorTab {
         if active {
             self.draw_caret(&buffers, ibuffer, &metrics, &state, (*ui_style).clip);
         }
+
+        // Draw text area scrollbars
+        let mut scroll_y = 50.0;
+        let scrollbar = UiScrollbarT {
+            rect: RectT {
+                x: metrics.rect.x + metrics.rect.w - scrollbar_width,
+                y: metrics.rect.y,
+                w: scrollbar_width,
+                h: metrics.rect.h,
+            },
+            min: 0.0,
+            max: 100.0,
+            size: 10.0,
+            ..Default::default()
+        };
+        ui_api.scrollbar_y(ui, ui_style, &scrollbar, &mut scroll_y);
     }
 
     unsafe fn set_root(&self, tt: *mut TheTruthO, root: TtIdT) {
@@ -195,7 +201,7 @@ impl CodeEditorTab {
         let mut active = ui_api.is_active(ui, id, ANODE_CODE_EDITOR_ACTIVE_DATA.hash);
 
         // Handle mouse input
-        if ui_api.is_hovering(ui, metrics.inner_rect, clip) {
+        if ui_api.is_hovering(ui, metrics.textarea_rect, clip) {
             (*buffers.activation).next_hover = id;
         }
 
@@ -238,8 +244,8 @@ impl CodeEditorTab {
     ) {
         if input.left_mouse_pressed {
             // Move the caret to the position the cursor is hovering over
-            let relative_x = input.mouse_pos.x - metrics.inner_rect.x;
-            let relative_y = input.mouse_pos.y - metrics.inner_rect.y;
+            let relative_x = input.mouse_pos.x - metrics.textarea_rect.x;
+            let relative_y = input.mouse_pos.y - metrics.textarea_rect.y;
             let line = ((relative_y - metrics.caret_start) / metrics.line_stride)
                 .floor()
                 .max(0.0) as usize;
@@ -323,10 +329,10 @@ impl CodeEditorTab {
             a: 255,
         };
         let rect = RectT {
-            x: metrics.inner_rect.x + (metrics.char_width * 100.0).round(),
-            y: metrics.inner_rect.y,
+            x: metrics.textarea_rect.x + (metrics.char_width * 100.0).round(),
+            y: metrics.textarea_rect.y,
             w: 1.0,
-            h: metrics.inner_rect.h,
+            h: metrics.textarea_rect.h,
         };
         (*self.data.apis.draw2d).fill_rect(buffers.vbuffer, ibuffer, style, rect);
     }
@@ -342,8 +348,8 @@ impl CodeEditorTab {
         let (line, column) = state.caret_line_column();
 
         let pos = Vec2T {
-            x: metrics.inner_rect.x + (column as f32 * metrics.char_width),
-            y: metrics.inner_rect.y + metrics.caret_start + (metrics.line_stride * line as f32),
+            x: metrics.textarea_rect.x + (column as f32 * metrics.char_width),
+            y: metrics.textarea_rect.y + metrics.caret_start + (metrics.line_stride * line as f32),
         };
 
         let caret = RectT {
@@ -441,8 +447,8 @@ impl CodeEditorTab {
                     ibuffer,
                     style,
                     Vec2T {
-                        x: metrics.inner_rect.x + (position.x as f32 * metrics.char_width),
-                        y: metrics.inner_rect.y
+                        x: metrics.textarea_rect.x + (position.x as f32 * metrics.char_width),
+                        y: metrics.textarea_rect.y
                             + metrics.first_baseline
                             + (position.y as f32 * metrics.line_stride),
                     },
@@ -519,11 +525,11 @@ struct EditorMetrics {
     char_width: f32,
     caret_start: f32,
     rect: RectT,
-    inner_rect: RectT,
+    textarea_rect: RectT,
 }
 
 impl EditorMetrics {
-    pub unsafe fn calculate(rect: RectT, font: &UiFontT) -> Self {
+    pub unsafe fn calculate(rect: RectT, font: &UiFontT, scrolbar_width: f32) -> Self {
         let font_info = &*(*font.font).info;
 
         // Font metrics
@@ -535,9 +541,9 @@ impl EditorMetrics {
 
         // Layouting sizes
         let line_offset = char_width * 7.0;
-        let mut inner_rect = rect;
-        inner_rect.x += line_offset;
-        inner_rect.w -= line_offset;
+        let mut textarea_rect = rect;
+        textarea_rect.x += line_offset;
+        textarea_rect.w -= line_offset + scrolbar_width;
 
         Self {
             first_baseline: first_line,
@@ -545,7 +551,7 @@ impl EditorMetrics {
             char_width,
             caret_start,
             rect,
-            inner_rect,
+            textarea_rect,
         }
     }
 }
