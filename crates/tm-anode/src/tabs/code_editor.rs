@@ -115,7 +115,7 @@ impl CodeEditorTab {
         let ibuffer = *buffers.ibuffers.offset((*ui_style).buffer as isize);
         let code_font = ui_api.font(ui, ANODE_CODE_FONT.hash, 10);
 
-        let metrics = EditorMetrics::calculate(&buffers, rect, &code_font);
+        let metrics = EditorMetrics::calculate(&buffers, rect, &code_font, self.scroll_y());
         let active = self.handle_input(
             ui_api,
             ui,
@@ -153,7 +153,7 @@ impl CodeEditorTab {
         // Draw parts
         let mut glyphs = Vec::new();
         let line_count = self.draw_decorations(&ctx, &mut style, &mut glyphs, &document);
-        self.draw_code(ui_api, &ctx, &mut style, &mut glyphs, &document);
+        self.draw_code(ui_api, &ctx, style, &mut glyphs, &document);
 
         if active {
             self.draw_caret(&ctx, &document, (*ui_style).clip);
@@ -330,7 +330,8 @@ impl CodeEditorTab {
                 x: ctx.metrics.tab_rect.x,
                 y: ctx.metrics.tab_rect.y
                     + ctx.metrics.first_baseline
-                    + (ctx.metrics.line_stride * i as f32),
+                    + (ctx.metrics.line_stride * i as f32)
+                    + ctx.metrics.scroll_offset,
             };
             self.draw_text(ctx, style, pos, glyphs, &digits);
         }
@@ -403,11 +404,13 @@ impl CodeEditorTab {
         &self,
         ui_api: &UiApi,
         ctx: &UiCtx,
-        style: &mut Draw2dStyleT,
+        mut style: Draw2dStyleT,
         glyphs: &mut Vec<u16>,
         document: &DocumentState,
     ) {
         let mut codepoints = Vec::new();
+        style.clip =
+            (*self.data.apis.draw2d).add_clip_rect(ctx.buffers.vbuffer, ctx.metrics.textarea_rect);
         style.color = BASE_CODE_COLOR;
 
         // Indexing ranges into the string repeatedly is slow as it's not an O(1) operation, instead
@@ -421,7 +424,14 @@ impl CodeEditorTab {
             match event {
                 HighlightEvent::Source { start, end } => {
                     let segment = (&mut chars).take(end - start);
-                    self.draw_segment(ctx, style, glyphs, &mut codepoints, &mut position, segment);
+                    self.draw_segment(
+                        ctx,
+                        &mut style,
+                        glyphs,
+                        &mut codepoints,
+                        &mut position,
+                        segment,
+                    );
                     ui_api.reserve_draw_memory(ctx.ui);
                 }
                 HighlightEvent::HighlightStart(higlight) => {
@@ -434,6 +444,7 @@ impl CodeEditorTab {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     unsafe fn draw_segment(
         &self,
         ctx: &UiCtx,
@@ -467,7 +478,8 @@ impl CodeEditorTab {
                             + (position.x as f32 * ctx.metrics.char_width),
                         y: ctx.metrics.textarea_rect.y
                             + ctx.metrics.first_baseline
-                            + (position.y as f32 * ctx.metrics.line_stride),
+                            + (position.y as f32 * ctx.metrics.line_stride)
+                            + ctx.metrics.scroll_offset,
                     },
                     glyphs,
                     codepoints,
@@ -543,10 +555,16 @@ struct EditorMetrics {
     tab_rect: RectT,
     textarea_rect: RectT,
     scrollbar_width: f32,
+    scroll_offset: f32,
 }
 
 impl EditorMetrics {
-    pub unsafe fn calculate(buffers: &UiBuffersT, tab_rect: RectT, font: &UiFontT) -> Self {
+    pub unsafe fn calculate(
+        buffers: &UiBuffersT,
+        tab_rect: RectT,
+        font: &UiFontT,
+        scroll_y: f32,
+    ) -> Self {
         let font_info = &*(*font.font).info;
 
         let scrollbar_width = *buffers
@@ -574,6 +592,7 @@ impl EditorMetrics {
             tab_rect,
             textarea_rect,
             scrollbar_width,
+            scroll_offset: -line_stride * scroll_y,
         }
     }
 }
