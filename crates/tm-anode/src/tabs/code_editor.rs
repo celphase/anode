@@ -8,7 +8,19 @@ use std::{
 };
 
 use machinery::{export_instance_fns, export_singleton_fns, identifier, Identifier};
-use machinery_api::{foundation::{ColorSrgbT, RectT, TheTruthO, TtIdT, UiO, Vec2T}, plugins::{editor_views::AssetSaveI, ui::{Draw2dIbufferT, Draw2dStyleT, TM_UI_CURSOR_TEXT, TM_UI_EDIT_KEY_DELETE, TM_UI_EDIT_KEY_DOWN, TM_UI_EDIT_KEY_LEFT, TM_UI_EDIT_KEY_RIGHT, TM_UI_EDIT_KEY_UP, TM_UI_METRIC_SCROLLBAR_WIDTH, TabI, TabO, TabVt, TabVtRootT, UiApi, UiBuffersT, UiFontT, UiInputStateT, UiScrollbarT, UiStyleT}}, the_machinery::{TabCreateContextT, TheMachineryTabVt}};
+use machinery_api::{
+    foundation::{ColorSrgbT, RectT, TheTruthO, TtIdT, UiO, Vec2T},
+    plugins::{
+        editor_views::AssetSaveI,
+        ui::{
+            Draw2dIbufferT, Draw2dStyleT, TabI, TabO, TabVt, TabVtRootT, UiApi, UiBuffersT,
+            UiFontT, UiInputStateT, UiScrollbarT, UiStyleT, TM_UI_CURSOR_TEXT,
+            TM_UI_EDIT_KEY_DELETE, TM_UI_EDIT_KEY_DOWN, TM_UI_EDIT_KEY_LEFT, TM_UI_EDIT_KEY_RIGHT,
+            TM_UI_EDIT_KEY_UP, TM_UI_METRIC_SCROLLBAR_WIDTH,
+        },
+    },
+    the_machinery::{TabCreateContextT, TheMachineryTabVt},
+};
 use tracing::{event, Level};
 use tree_sitter_highlight::HighlightEvent;
 use ultraviolet::IVec2;
@@ -101,8 +113,7 @@ impl CodeEditorTab {
         let ibuffer = *buffers.ibuffers.offset((*ui_style).buffer as isize);
         let code_font = ui_api.font(ui, ANODE_CODE_FONT.hash, 10);
 
-        let scrollbar_width = *buffers.metrics.offset(TM_UI_METRIC_SCROLLBAR_WIDTH as isize);
-        let metrics = EditorMetrics::calculate(rect, &code_font, scrollbar_width);
+        let metrics = EditorMetrics::calculate(&buffers, rect, &code_font);
         let active =
             self.handle_input(ui_api, ui, (*ui_style).clip, &buffers, &mut state, &metrics);
 
@@ -125,7 +136,8 @@ impl CodeEditorTab {
 
         // Draw parts
         let mut glyphs = Vec::new();
-        self.draw_decorations(&buffers, ibuffer, &mut style, &mut glyphs, &metrics, &state);
+        let line_count =
+            self.draw_decorations(&buffers, ibuffer, &mut style, &mut glyphs, &metrics, &state);
         self.draw_code(
             ui_api,
             ui,
@@ -141,21 +153,7 @@ impl CodeEditorTab {
             self.draw_caret(&buffers, ibuffer, &metrics, &state, (*ui_style).clip);
         }
 
-        // Draw text area scrollbars
-        let mut scroll_y = 50.0;
-        let scrollbar = UiScrollbarT {
-            rect: RectT {
-                x: metrics.rect.x + metrics.rect.w - scrollbar_width,
-                y: metrics.rect.y,
-                w: scrollbar_width,
-                h: metrics.rect.h,
-            },
-            min: 0.0,
-            max: 100.0,
-            size: 10.0,
-            ..Default::default()
-        };
-        ui_api.scrollbar_y(ui, ui_style, &scrollbar, &mut scroll_y);
+        self.draw_scrollbar(ui_api, ui, ui_style, &metrics, line_count);
     }
 
     unsafe fn set_root(&self, tt: *mut TheTruthO, root: TtIdT) {
@@ -303,7 +301,7 @@ impl CodeEditorTab {
         glyphs: &mut Vec<u16>,
         metrics: &EditorMetrics,
         state: &DocumentState,
-    ) {
+    ) -> usize {
         style.color = ColorSrgbT {
             r: 120,
             g: 120,
@@ -311,12 +309,13 @@ impl CodeEditorTab {
             a: 255,
         };
 
-        for i in 0..state.text().split('\n').count() {
+        let line_count = state.text().split('\n').count();
+        for i in 0..line_count {
             // Draw the gutter (left side line numbers)
             let digits = digits(i as u32 + 1);
             let pos = Vec2T {
-                x: metrics.rect.x,
-                y: metrics.rect.y + metrics.first_baseline + (metrics.line_stride * i as f32),
+                x: metrics.tab_rect.x,
+                y: metrics.tab_rect.y + metrics.first_baseline + (metrics.line_stride * i as f32),
             };
             self.draw_text(buffers, ibuffer, style, pos, glyphs, &digits);
         }
@@ -335,6 +334,8 @@ impl CodeEditorTab {
             h: metrics.textarea_rect.h,
         };
         (*self.data.apis.draw2d).fill_rect(buffers.vbuffer, ibuffer, style, rect);
+
+        line_count
     }
 
     unsafe fn draw_caret(
@@ -364,6 +365,31 @@ impl CodeEditorTab {
             ..Default::default()
         };
         (*self.data.apis.draw2d).fill_rect(buffers.vbuffer, ibuffer, &style, caret);
+    }
+
+    unsafe fn draw_scrollbar(
+        &self,
+        ui_api: &UiApi,
+        ui: *mut UiO,
+        ui_style: *const UiStyleT,
+        metrics: &EditorMetrics,
+        line_count: usize,
+    ) {
+        let mut scroll_y = 0.0;
+        let lines_per_height = metrics.textarea_rect.h / metrics.line_stride;
+        let scrollbar = UiScrollbarT {
+            rect: RectT {
+                x: metrics.tab_rect.x + metrics.tab_rect.w - metrics.scrollbar_width,
+                y: metrics.tab_rect.y,
+                w: metrics.scrollbar_width,
+                h: metrics.tab_rect.h,
+            },
+            min: 0.0,
+            max: line_count as f32 + lines_per_height,
+            size: lines_per_height,
+            ..Default::default()
+        };
+        ui_api.scrollbar_y(ui, ui_style, &scrollbar, &mut scroll_y);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -524,13 +550,18 @@ struct EditorMetrics {
     line_stride: f32,
     char_width: f32,
     caret_start: f32,
-    rect: RectT,
+    tab_rect: RectT,
     textarea_rect: RectT,
+    scrollbar_width: f32,
 }
 
 impl EditorMetrics {
-    pub unsafe fn calculate(rect: RectT, font: &UiFontT, scrolbar_width: f32) -> Self {
+    pub unsafe fn calculate(buffers: &UiBuffersT, tab_rect: RectT, font: &UiFontT) -> Self {
         let font_info = &*(*font.font).info;
+
+        let scrollbar_width = *buffers
+            .metrics
+            .offset(TM_UI_METRIC_SCROLLBAR_WIDTH as isize);
 
         // Font metrics
         let padding = 4.0;
@@ -541,17 +572,18 @@ impl EditorMetrics {
 
         // Layouting sizes
         let line_offset = char_width * 7.0;
-        let mut textarea_rect = rect;
+        let mut textarea_rect = tab_rect;
         textarea_rect.x += line_offset;
-        textarea_rect.w -= line_offset + scrolbar_width;
+        textarea_rect.w -= line_offset + scrollbar_width;
 
         Self {
             first_baseline: first_line,
             line_stride,
             char_width,
             caret_start,
-            rect,
+            tab_rect,
             textarea_rect,
+            scrollbar_width,
         }
     }
 }
