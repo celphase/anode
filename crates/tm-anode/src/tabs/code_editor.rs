@@ -116,15 +116,6 @@ impl CodeEditorTab {
         let code_font = ui_api.font(ui, ANODE_CODE_FONT.hash, 10);
 
         let metrics = EditorMetrics::calculate(&buffers, rect, &code_font, self.scroll_y());
-        let active = self.handle_input(
-            ui_api,
-            ui,
-            (*ui_style).clip,
-            &buffers,
-            &mut document,
-            &metrics,
-        );
-
         let ctx = UiCtx {
             ui,
             ui_style,
@@ -132,6 +123,12 @@ impl CodeEditorTab {
             ibuffer,
             metrics,
         };
+
+        let textarea_clip =
+            (*self.data.apis.draw2d).add_clip_rect(ctx.buffers.vbuffer, ctx.metrics.textarea_rect);
+
+        // Process input affecting the UI
+        let active = self.handle_input(ui_api, &ctx, &mut document);
 
         // Fill the style for drawing
         let mut style = Draw2dStyleT {
@@ -153,10 +150,10 @@ impl CodeEditorTab {
         // Draw parts
         let mut glyphs = Vec::new();
         let line_count = self.draw_decorations(&ctx, &mut style, &mut glyphs, &document);
-        self.draw_code(ui_api, &ctx, style, &mut glyphs, &document);
+        self.draw_code(ui_api, &ctx, style, textarea_clip, &mut glyphs, &document);
 
         if active {
-            self.draw_caret(&ctx, &document, (*ui_style).clip);
+            self.draw_caret(&ctx, &document, textarea_clip);
         }
 
         self.draw_scrollbar(ui_api, &ctx, line_count);
@@ -201,27 +198,24 @@ impl CodeEditorTab {
     unsafe fn handle_input(
         &self,
         ui_api: &UiApi,
-        ui: *mut UiO,
-        clip: u32,
-        buffers: &UiBuffersT,
+        ctx: &UiCtx,
         document: &mut DocumentState,
-        metrics: &EditorMetrics,
     ) -> bool {
-        let input = &*buffers.input;
+        let input = &*ctx.buffers.input;
 
-        let id = ui_api.make_id(ui);
-        let mut active = ui_api.is_active(ui, id, ANODE_CODE_EDITOR_ACTIVE_DATA.hash);
+        let id = ui_api.make_id(ctx.ui);
+        let mut active = ui_api.is_active(ctx.ui, id, ANODE_CODE_EDITOR_ACTIVE_DATA.hash);
 
         // Handle mouse input
-        if ui_api.is_hovering(ui, metrics.textarea_rect, clip) {
-            (*buffers.activation).next_hover = id;
+        if ui_api.is_hovering(ctx.ui, ctx.metrics.textarea_rect, (*ctx.ui_style).clip) {
+            (*ctx.buffers.activation).next_hover = id;
         }
 
-        let is_hovering = (*buffers.activation).hover == id;
+        let is_hovering = (*ctx.buffers.activation).hover == id;
         let mut should_activate = self.auto_activate.swap(false, Ordering::SeqCst);
 
         if is_hovering {
-            ui_api.set_cursor(ui, TM_UI_CURSOR_TEXT);
+            ui_api.set_cursor(ctx.ui, TM_UI_CURSOR_TEXT);
             self.set_scroll_y(self.scroll_y() + -input.mouse_wheel);
         }
 
@@ -229,21 +223,21 @@ impl CodeEditorTab {
         if input.left_mouse_pressed || input.right_mouse_pressed {
             if is_hovering {
                 should_activate = true;
-            } else if (*buffers.activation).active == id {
-                ui_api.clear_active(ui);
+            } else if (*ctx.buffers.activation).active == id {
+                ui_api.clear_active(ctx.ui);
                 active = null_mut();
             }
         }
 
         // If this component should be activated, check if it isn't already and then activate
         if should_activate && active.is_null() {
-            active = ui_api.set_active(ui, id, ANODE_CODE_EDITOR_ACTIVE_DATA.hash);
-            ui_api.set_responder_chain(ui, id);
+            active = ui_api.set_active(ctx.ui, id, ANODE_CODE_EDITOR_ACTIVE_DATA.hash);
+            ui_api.set_responder_chain(ctx.ui, id);
         }
 
         // If the text area is active
         if !active.is_null() {
-            self.handle_active_input(document, metrics, input);
+            self.handle_active_input(document, &ctx.metrics, input);
         }
 
         !active.is_null()
@@ -258,7 +252,7 @@ impl CodeEditorTab {
         if input.left_mouse_pressed {
             // Move the caret to the position the cursor is hovering over
             let relative_x = input.mouse_pos.x - metrics.textarea_rect.x;
-            let relative_y = input.mouse_pos.y - metrics.textarea_rect.y;
+            let relative_y = input.mouse_pos.y - metrics.textarea_rect.y - metrics.scroll_y_offset;
             let line = ((relative_y - metrics.caret_start) / metrics.line_stride)
                 .floor()
                 .max(0.0) as usize;
@@ -331,7 +325,7 @@ impl CodeEditorTab {
                 y: ctx.metrics.tab_rect.y
                     + ctx.metrics.first_baseline
                     + (ctx.metrics.line_stride * i as f32)
-                    + ctx.metrics.scroll_offset,
+                    + ctx.metrics.scroll_y_offset,
             };
             self.draw_text(ctx, style, pos, glyphs, &digits);
         }
@@ -354,14 +348,15 @@ impl CodeEditorTab {
         line_count
     }
 
-    unsafe fn draw_caret(&self, ctx: &UiCtx, document: &DocumentState, clip: u32) {
+    unsafe fn draw_caret(&self, ctx: &UiCtx, document: &DocumentState, textarea_clip: u32) {
         let (line, column) = document.caret_line_column();
 
         let pos = Vec2T {
             x: ctx.metrics.textarea_rect.x + (column as f32 * ctx.metrics.char_width),
             y: ctx.metrics.textarea_rect.y
                 + ctx.metrics.caret_start
-                + (ctx.metrics.line_stride * line as f32),
+                + (ctx.metrics.line_stride * line as f32)
+                + ctx.metrics.scroll_y_offset,
         };
 
         let caret = RectT {
@@ -372,7 +367,7 @@ impl CodeEditorTab {
         };
         let style = Draw2dStyleT {
             color: CARET_COLOR,
-            clip,
+            clip: textarea_clip,
             ..Default::default()
         };
         (*self.data.apis.draw2d).fill_rect(ctx.buffers.vbuffer, ctx.ibuffer, &style, caret);
@@ -399,18 +394,17 @@ impl CodeEditorTab {
         self.set_scroll_y(scroll_y);
     }
 
-    #[allow(clippy::too_many_arguments)]
     unsafe fn draw_code(
         &self,
         ui_api: &UiApi,
         ctx: &UiCtx,
         mut style: Draw2dStyleT,
+        textarea_clip: u32,
         glyphs: &mut Vec<u16>,
         document: &DocumentState,
     ) {
         let mut codepoints = Vec::new();
-        style.clip =
-            (*self.data.apis.draw2d).add_clip_rect(ctx.buffers.vbuffer, ctx.metrics.textarea_rect);
+        style.clip = textarea_clip;
         style.color = BASE_CODE_COLOR;
 
         // Indexing ranges into the string repeatedly is slow as it's not an O(1) operation, instead
@@ -444,7 +438,6 @@ impl CodeEditorTab {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     unsafe fn draw_segment(
         &self,
         ctx: &UiCtx,
@@ -479,7 +472,7 @@ impl CodeEditorTab {
                         y: ctx.metrics.textarea_rect.y
                             + ctx.metrics.first_baseline
                             + (position.y as f32 * ctx.metrics.line_stride)
-                            + ctx.metrics.scroll_offset,
+                            + ctx.metrics.scroll_y_offset,
                     },
                     glyphs,
                     codepoints,
@@ -555,7 +548,7 @@ struct EditorMetrics {
     tab_rect: RectT,
     textarea_rect: RectT,
     scrollbar_width: f32,
-    scroll_offset: f32,
+    scroll_y_offset: f32,
 }
 
 impl EditorMetrics {
@@ -592,7 +585,7 @@ impl EditorMetrics {
             tab_rect,
             textarea_rect,
             scrollbar_width,
-            scroll_offset: -line_stride * scroll_y,
+            scroll_y_offset: -line_stride * scroll_y,
         }
     }
 }
