@@ -60,11 +60,7 @@ impl EditorState {
         &self.highlights
     }
 
-    pub fn caret(&self) -> usize {
-        self.caret
-    }
-
-    fn caret_line_column(&self) -> (usize, usize) {
+    pub fn caret_line_column(&self) -> (usize, usize) {
         // Find the right line
         let mut last_line_index = 0;
         let mut last_length = 0;

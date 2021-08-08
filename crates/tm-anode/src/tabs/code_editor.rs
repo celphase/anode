@@ -110,6 +110,7 @@ impl CodeEditorTab {
         // Fill the style for drawing
         let mut style = Draw2dStyleT {
             font: code_font.font,
+            clip: (*ui_style).clip,
             font_scale: 1.0,
             ..Default::default()
         };
@@ -136,7 +137,10 @@ impl CodeEditorTab {
             &metrics,
             &state,
         );
-        self.draw_top_decorations(&buffers, ibuffer, &metrics, &state, active);
+
+        if active {
+            self.draw_caret(&buffers, ibuffer, &metrics, &state, (*ui_style).clip);
+        }
     }
 
     unsafe fn set_root(&self, tt: *mut TheTruthO, root: TtIdT) {
@@ -303,34 +307,33 @@ impl CodeEditorTab {
         }
     }
 
-    unsafe fn draw_top_decorations(
+    unsafe fn draw_caret(
         &self,
         buffers: &UiBuffersT,
         ibuffer: *mut Draw2dIbufferT,
         metrics: &EditorMetrics,
         state: &EditorState,
-        active: bool,
+        clip: u32,
     ) {
-        let caret_pos = state.caret();
+        let (line, column) = state.caret_line_column();
 
-        let mut start = 0;
-        for (i, line) in state.text().split('\n').enumerate() {
-            // Check if the caret's on this line
-            if caret_pos >= start && caret_pos <= (start + line.len()) {
-                let offset = caret_pos - start;
-                let pos = Vec2T {
-                    x: metrics.inner_rect.x + (offset as f32 * metrics.char_width),
-                    y: metrics.inner_rect.y
-                        + metrics.caret_start
-                        + (metrics.line_stride * i as f32),
-                };
+        let pos = Vec2T {
+            x: metrics.inner_rect.x + (column as f32 * metrics.char_width),
+            y: metrics.inner_rect.y + metrics.caret_start + (metrics.line_stride * line as f32),
+        };
 
-                if active {
-                    self.draw_caret(buffers, ibuffer, metrics, pos);
-                }
-            }
-            start += line.len() + 1;
-        }
+        let caret = RectT {
+            x: pos.x - 1.0,
+            y: pos.y,
+            w: 2.0,
+            h: metrics.line_stride,
+        };
+        let style = Draw2dStyleT {
+            color: CARET_COLOR,
+            clip,
+            ..Default::default()
+        };
+        (*self.data.apis.draw2d).fill_rect(buffers.vbuffer, ibuffer, &style, caret);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -433,26 +436,6 @@ impl CodeEditorTab {
                 position.y += 1;
             }
         }
-    }
-
-    unsafe fn draw_caret(
-        &self,
-        buffers: &UiBuffersT,
-        ibuffer: *mut Draw2dIbufferT,
-        metrics: &EditorMetrics,
-        pos: Vec2T,
-    ) {
-        let caret = RectT {
-            x: pos.x - 1.0,
-            y: pos.y,
-            w: 2.0,
-            h: metrics.line_stride,
-        };
-        let style = Draw2dStyleT {
-            color: CARET_COLOR,
-            ..Default::default()
-        };
-        (*self.data.apis.draw2d).fill_rect(buffers.vbuffer, ibuffer, &style, caret);
     }
 
     unsafe fn draw_text(
