@@ -26,7 +26,7 @@ use tree_sitter_highlight::HighlightEvent;
 use ultraviolet::IVec2;
 
 use crate::{
-    document::{CaretDirection, DocumentState, TextChange},
+    document::{CaretDirection, DocumentState},
     fonts::ANODE_CODE_FONT,
     plugin::{AnodePlugin, PluginData},
 };
@@ -279,15 +279,15 @@ impl CodeEditorTab {
         let end = input.num_text_input as usize;
         for codepoint in &input.text_input[0..end] {
             match *codepoint {
-                8 => document.apply_text_change(&self.data, TextChange::Backspace),
-                9 => document.apply_text_change(&self.data, TextChange::Tab),
-                13 => document.apply_text_change(&self.data, TextChange::Character('\n')),
+                8 => document.apply_input_backspace(&self.data),
+                9 => document.apply_input_tab(&self.data),
+                13 => document.apply_input_character(&self.data, '\n'),
                 // Ignore all other control characters
                 v if v < 32 => continue,
                 // Any text input
                 _ => {
                     let character = std::char::from_u32(*codepoint).unwrap_or(' ');
-                    document.apply_text_change(&self.data, TextChange::Character(character));
+                    document.apply_input_character(&self.data, character);
                 }
             }
         }
@@ -307,7 +307,7 @@ impl CodeEditorTab {
         }
 
         if input.edit_key_pressed[TM_UI_EDIT_KEY_DELETE as usize] {
-            document.apply_text_change(&self.data, TextChange::Delete);
+            document.apply_input_delete(&self.data);
         }
     }
 

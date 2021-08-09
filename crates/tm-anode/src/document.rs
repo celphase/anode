@@ -220,46 +220,61 @@ impl DocumentState {
         Ok(())
     }
 
-    pub fn apply_text_change(&mut self, data: &PluginData, change: TextChange) {
-        match change {
-            TextChange::Character(character) => {
-                self.text.insert(self.caret, character);
-                self.caret += 1;
-            }
-            TextChange::Backspace => {
-                if self.caret >= 1 {
-                    self.text.remove(self.caret - 1);
-                    self.caret -= 1;
-                } else {
-                    // Can't backspace at start of file
-                    return;
-                }
-            }
-            TextChange::Delete => {
-                if self.caret < self.text.len() {
-                    self.text.remove(self.caret);
-                } else {
-                    // Can't delete at end of file
-                    return;
-                }
-            }
-            TextChange::Tab => {
-                // Pad to the nearest 4
-                let (_, column) = self.caret_line_column();
-                let count = 4 - (column % 4);
-                for _ in 0..count {
-                    self.text.insert(self.caret, ' ');
-                }
-                self.caret += count;
-            }
+    pub fn apply_input_character(&mut self, data: &PluginData, character: char) {
+        self.text.insert(self.caret, character);
+        self.caret += 1;
+
+        if character != '\n' {
+            self.caret_column += 1;
+        } else {
+            self.caret_column = 0;
         }
 
-        self.set_caret_column_to_current();
-
-        // Re-highlight changed text
         self.highlight();
+        self.commit_to_asset(data);
+    }
 
-        // Save the changes to the asset
+    pub fn apply_input_backspace(&mut self, data: &PluginData) {
+        if self.caret == 0 {
+            // Can't backspace at start of file
+            return;
+        }
+
+        let removed = self.text.remove(self.caret - 1);
+        self.caret -= 1;
+
+        if removed != '\n' {
+            self.caret_column -= 1;
+        } else {
+            self.set_caret_column_to_current();
+        }
+
+        self.highlight();
+        self.commit_to_asset(data);
+    }
+
+    pub fn apply_input_delete(&mut self, data: &PluginData) {
+        if self.caret == self.text.len() {
+            // Can't delete at end of file
+            return;
+        }
+
+        self.text.remove(self.caret);
+
+        self.highlight();
+        self.commit_to_asset(data);
+    }
+
+    pub fn apply_input_tab(&mut self, data: &PluginData) {
+        // Pad to the nearest 4
+        let (_, column) = self.caret_line_column();
+        let count = 4 - (column % 4);
+        for _ in 0..count {
+            self.text.insert(self.caret, ' ');
+        }
+        self.caret += count;
+
+        self.highlight();
         self.commit_to_asset(data);
     }
 
@@ -313,13 +328,6 @@ pub enum CaretDirection {
     Right,
     Up,
     Down,
-}
-
-pub enum TextChange {
-    Character(char),
-    Backspace,
-    Delete,
-    Tab,
 }
 
 unsafe fn title_from_asset(
