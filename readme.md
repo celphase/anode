@@ -1,5 +1,7 @@
 # Anode
 
+> The terminal or electrode from which electrons leave a system.
+
 Anode is a text editor plugin for [The Machinery] game engine.
 
 ![Anode Screenshot](screenshot.png)
