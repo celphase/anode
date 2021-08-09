@@ -89,11 +89,6 @@ impl DocumentState {
         (last_line_index, last_length - 1)
     }
 
-    fn set_caret(&mut self, index: usize) {
-        self.caret = index;
-        self.set_caret_column_to_current();
-    }
-
     pub fn set_caret_column_to_current(&mut self) {
         let (_, column) = self.caret_line_column();
         self.caret_column = column;
@@ -148,15 +143,15 @@ impl DocumentState {
 
     pub fn move_caret(&mut self, direction: CaretDirection) {
         match direction {
-            CaretDirection::Left => self.set_caret((self.caret as i32 - 1).max(0) as usize),
-            CaretDirection::Right => self.set_caret((self.caret + 1).min(self.text.len())),
+            CaretDirection::Left => self.caret = (self.caret as i32 - 1).max(0) as usize,
+            CaretDirection::Right => self.caret = (self.caret + 1).min(self.text.len()),
             CaretDirection::Up => {
                 let (line, _) = self.caret_line_column();
                 if line > 0 {
                     self.set_caret_line_column(line - 1, self.caret_column);
                 } else {
                     // If we're already on the first line, force to top
-                    self.set_caret(0);
+                    self.caret = 0;
                 }
             }
             CaretDirection::Down => {
@@ -166,10 +161,12 @@ impl DocumentState {
                     self.set_caret_line_column(line + 1, self.caret_column);
                 } else {
                     // If we're already on the last line, force to end
-                    self.set_caret(self.text.len());
+                    self.caret = self.text.len();
                 }
             }
         }
+
+        self.set_caret_column_to_current();
     }
 
     pub unsafe fn load_from_asset(
@@ -227,12 +224,12 @@ impl DocumentState {
         match change {
             TextChange::Character(character) => {
                 self.text.insert(self.caret, character);
-                self.set_caret(self.caret + 1);
+                self.caret += 1;
             }
             TextChange::Backspace => {
                 if self.caret >= 1 {
                     self.text.remove(self.caret - 1);
-                    self.set_caret(self.caret - 1);
+                    self.caret -= 1;
                 } else {
                     // Can't backspace at start of file
                     return;
@@ -247,6 +244,8 @@ impl DocumentState {
                 }
             }
         }
+
+        self.set_caret_column_to_current();
 
         // Re-highlight changed text
         self.highlight();

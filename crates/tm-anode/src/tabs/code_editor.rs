@@ -111,7 +111,7 @@ impl CodeEditorTab {
         let ui_api = &*self.data.apis.ui;
         let mut document = self.document.lock().unwrap();
 
-        let buffers = (*self.data.apis.ui).buffers(ui);
+        let buffers = ui_api.buffers(ui);
         let ibuffer = *buffers.ibuffers.offset((*ui_style).buffer as isize);
         let code_font = ui_api.font(ui, ANODE_CODE_FONT.hash, 10);
 
