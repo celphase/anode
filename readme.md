@@ -16,8 +16,14 @@ Anode is a text editor plugin for [The Machinery] game engine.
 ## Crates
 
 - `tm-anode` - Anode text editor plugin for The Machinery.
-- [![Crates.io](https://img.shields.io/crates/v/tm-anode-api.svg?label=tm-anode-api)](https://crates.io/crates/tm-anode-api) [![docs.rs](https://docs.rs/tm-anode-api/badge.svg)](https://docs.rs/tm-anode-api/) - API for the tm-anode The Machinery plugin.
+- [![crates.io]][1] [![docs.rs]][2] - API for the tm-anode The Machinery plugin.
 - `tm-textfile` - Text file plugin for The Machinery that showcases basic usage of `tm-anode-api`.
+
+[crates.io]: https://img.shields.io/crates/v/tm-anode-api.svg?label=tm-anode-api
+[docs.rs]: https://docs.rs/tm-anode-api/badge.svg
+[1]: https://crates.io/crates/tm-anode-api
+[2]: https://docs.rs/tm-anode-api/
+
 ## Building and Installing
 
 Anode is built using the [Cargo] package manager for [Rust], and can be automatically copied to your
