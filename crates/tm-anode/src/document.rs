@@ -192,13 +192,60 @@ impl DocumentState {
         Ok(())
     }
 
-    pub fn apply_input_left(&mut self) {
-        self.caret = (self.caret as i32 - 1).max(0) as usize;
+    pub fn apply_input_left(&mut self, skip_word: bool) {
+        if !skip_word {
+            self.caret = (self.caret as i32 - 1).max(0) as usize;
+        } else {
+            let len = self.text.len();
+            let mut iter = self.text.chars().rev().enumerate().skip(len - self.caret);
+
+            // Skip to start of word
+            for (i, c) in &mut iter {
+                self.caret = len - i;
+
+                if c.is_alphanumeric() {
+                    break;
+                }
+            }
+
+            // Skip to end of word
+            for (i, c) in iter {
+                self.caret = len - i;
+
+                if !c.is_alphanumeric() {
+                    break;
+                }
+            }
+        }
+
         self.set_caret_column_to_current();
     }
 
-    pub fn apply_input_right(&mut self) {
-        self.caret = (self.caret + 1).min(self.text.len());
+    pub fn apply_input_right(&mut self, skip_word: bool) {
+        if !skip_word {
+            self.caret = (self.caret + 1).min(self.text.len());
+        } else {
+            let mut iter = self.text.chars().enumerate().skip(self.caret);
+
+            // Skip to start of word
+            for (i, c) in &mut iter {
+                self.caret = i;
+
+                if c.is_alphanumeric() {
+                    break;
+                }
+            }
+
+            // Skip to end of word
+            for (i, c) in iter {
+                self.caret = i;
+
+                if !c.is_alphanumeric() {
+                    break;
+                }
+            }
+        }
+
         self.set_caret_column_to_current();
     }
 

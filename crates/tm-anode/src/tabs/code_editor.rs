@@ -1,5 +1,4 @@
 use std::{
-    ops::Rem,
     ptr::null_mut,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
@@ -16,7 +15,7 @@ use machinery_api::{
             Draw2dIbufferT, Draw2dStyleT, TabI, TabO, TabVt, TabVtRootT, UiApi, UiBuffersT,
             UiFontT, UiInputStateT, UiScrollbarT, UiStyleT, TM_UI_CURSOR_TEXT,
             TM_UI_EDIT_KEY_DELETE, TM_UI_EDIT_KEY_DOWN, TM_UI_EDIT_KEY_LEFT, TM_UI_EDIT_KEY_RIGHT,
-            TM_UI_EDIT_KEY_UP, TM_UI_METRIC_SCROLLBAR_WIDTH,
+            TM_UI_EDIT_KEY_UP, TM_UI_METRIC_SCROLLBAR_WIDTH, TM_UI_MODIFIERS_CTRL,
         },
     },
     the_machinery::{TabCreateContextT, TheMachineryTabVt},
@@ -293,11 +292,12 @@ impl CodeEditorTab {
         }
 
         // Handle special edit input
+        let ctrl = (input.modifiers & TM_UI_MODIFIERS_CTRL as u32) != 0;
         if input.edit_key_pressed[TM_UI_EDIT_KEY_LEFT as usize] {
-            document.apply_input_left();
+            document.apply_input_left(ctrl);
         }
         if input.edit_key_pressed[TM_UI_EDIT_KEY_RIGHT as usize] {
-            document.apply_input_right();
+            document.apply_input_right(ctrl);
         }
         if input.edit_key_pressed[TM_UI_EDIT_KEY_UP as usize] {
             document.apply_input_up();
@@ -535,7 +535,7 @@ fn digits(value: u32) -> [u32; 5] {
     let mut write = false;
     for (i, codepoint) in codepoints.iter_mut().enumerate() {
         let div = 10u32.pow(4 - i as u32);
-        let digit = (value / div).rem(10);
+        let digit = (value / div) % 10;
 
         if digit != 0 || write {
             *codepoint = 48 + digit;
