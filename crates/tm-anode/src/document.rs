@@ -243,6 +243,15 @@ impl DocumentState {
                     return;
                 }
             }
+            TextChange::Tab => {
+                // Pad to the nearest 4
+                let (_, column) = self.caret_line_column();
+                let count = 4 - (column % 4);
+                for _ in 0..count {
+                    self.text.insert(self.caret, ' ');
+                }
+                self.caret += count;
+            }
         }
 
         self.set_caret_column_to_current();
@@ -310,6 +319,7 @@ pub enum TextChange {
     Character(char),
     Backspace,
     Delete,
+    Tab,
 }
 
 unsafe fn title_from_asset(

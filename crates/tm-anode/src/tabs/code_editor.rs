@@ -154,7 +154,7 @@ impl CodeEditorTab {
         self.draw_code(ui_api, &ctx, style, textarea_clip, &mut glyphs, &document);
 
         if active {
-            self.draw_caret(&ctx, &document, textarea_clip);
+            self.draw_caret(&ctx, &document, (*ui_style).clip);
         }
 
         self.draw_scrollbar(ui_api, &ctx, line_count);
@@ -279,10 +279,9 @@ impl CodeEditorTab {
         let end = input.num_text_input as usize;
         for codepoint in &input.text_input[0..end] {
             match *codepoint {
-                // Newline
-                13 => document.apply_text_change(&self.data, TextChange::Character('\n')),
-                // Backspace
                 8 => document.apply_text_change(&self.data, TextChange::Backspace),
+                9 => document.apply_text_change(&self.data, TextChange::Tab),
+                13 => document.apply_text_change(&self.data, TextChange::Character('\n')),
                 // Ignore all other control characters
                 v if v < 32 => continue,
                 // Any text input
@@ -355,7 +354,7 @@ impl CodeEditorTab {
         (*self.data.apis.draw2d).fill_rect(ctx.buffers.vbuffer, ctx.ibuffer, style, rect);
     }
 
-    unsafe fn draw_caret(&self, ctx: &UiCtx, document: &DocumentState, textarea_clip: u32) {
+    unsafe fn draw_caret(&self, ctx: &UiCtx, document: &DocumentState, clip: u32) {
         let (line, column) = document.caret_line_column();
 
         let pos = Vec2T {
@@ -374,7 +373,7 @@ impl CodeEditorTab {
         };
         let style = Draw2dStyleT {
             color: CARET_COLOR,
-            clip: textarea_clip,
+            clip,
             ..Default::default()
         };
         (*self.data.apis.draw2d).fill_rect(ctx.buffers.vbuffer, ctx.ibuffer, &style, caret);
