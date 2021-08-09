@@ -141,34 +141,6 @@ impl DocumentState {
         self.caret = self.text.len();
     }
 
-    pub fn move_caret(&mut self, direction: CaretDirection) {
-        match direction {
-            CaretDirection::Left => self.caret = (self.caret as i32 - 1).max(0) as usize,
-            CaretDirection::Right => self.caret = (self.caret + 1).min(self.text.len()),
-            CaretDirection::Up => {
-                let (line, _) = self.caret_line_column();
-                if line > 0 {
-                    self.set_caret_line_column(line - 1, self.caret_column);
-                } else {
-                    // If we're already on the first line, force to top
-                    self.caret = 0;
-                }
-            }
-            CaretDirection::Down => {
-                let (line, _) = self.caret_line_column();
-                let lines = self.text.split('\n').count();
-                if line < lines - 1 {
-                    self.set_caret_line_column(line + 1, self.caret_column);
-                } else {
-                    // If we're already on the last line, force to end
-                    self.caret = self.text.len();
-                }
-            }
-        }
-
-        self.set_caret_column_to_current();
-    }
-
     pub unsafe fn load_from_asset(
         &mut self,
         data: &PluginData,
@@ -218,6 +190,41 @@ impl DocumentState {
         self.highlight();
 
         Ok(())
+    }
+
+    pub fn apply_input_left(&mut self) {
+        self.caret = (self.caret as i32 - 1).max(0) as usize;
+        self.set_caret_column_to_current();
+    }
+
+    pub fn apply_input_right(&mut self) {
+        self.caret = (self.caret + 1).min(self.text.len());
+        self.set_caret_column_to_current();
+    }
+
+    pub fn apply_input_up(&mut self) {
+        let (line, _) = self.caret_line_column();
+        if line > 0 {
+            self.set_caret_line_column(line - 1, self.caret_column);
+        } else {
+            // If we're already on the first line, force to top
+            self.caret = 0;
+        }
+
+        self.set_caret_column_to_current();
+    }
+
+    pub fn apply_input_down(&mut self) {
+        let (line, _) = self.caret_line_column();
+        let lines = self.text.split('\n').count();
+        if line < lines - 1 {
+            self.set_caret_line_column(line + 1, self.caret_column);
+        } else {
+            // If we're already on the last line, force to end
+            self.caret = self.text.len();
+        }
+
+        self.set_caret_column_to_current();
     }
 
     pub fn apply_input_character(&mut self, data: &PluginData, character: char) {
@@ -278,6 +285,23 @@ impl DocumentState {
         self.commit_to_asset(data);
     }
 
+    fn highlight(&mut self) {
+        if let Some(config) = &self.highlight_config {
+            self.highlights = self
+                .highlighter
+                .highlight(config, self.text.as_bytes(), None, |_| None)
+                .unwrap()
+                .map(|v| v.unwrap())
+                .collect()
+        } else {
+            // No highlighting dummy event
+            self.highlights = vec![HighlightEvent::Source {
+                start: 0,
+                end: self.text.len(),
+            }];
+        }
+    }
+
     fn commit_to_asset(&self, data: &PluginData) {
         let (tt, asset, property) = if let Some(asset) = self.asset {
             asset
@@ -304,30 +328,6 @@ impl DocumentState {
             (*data.apis.truth).commit(tt, object, TtUndoScopeT { u64_: 0 });
         }
     }
-
-    fn highlight(&mut self) {
-        if let Some(config) = &self.highlight_config {
-            self.highlights = self
-                .highlighter
-                .highlight(config, self.text.as_bytes(), None, |_| None)
-                .unwrap()
-                .map(|v| v.unwrap())
-                .collect()
-        } else {
-            // No highlighting dummy event
-            self.highlights = vec![HighlightEvent::Source {
-                start: 0,
-                end: self.text.len(),
-            }];
-        }
-    }
-}
-
-pub enum CaretDirection {
-    Left,
-    Right,
-    Up,
-    Down,
 }
 
 unsafe fn title_from_asset(

@@ -26,7 +26,7 @@ use tree_sitter_highlight::HighlightEvent;
 use ultraviolet::IVec2;
 
 use crate::{
-    document::{CaretDirection, DocumentState},
+    document::DocumentState,
     fonts::ANODE_CODE_FONT,
     plugin::{AnodePlugin, PluginData},
 };
@@ -294,16 +294,16 @@ impl CodeEditorTab {
 
         // Handle special edit input
         if input.edit_key_pressed[TM_UI_EDIT_KEY_LEFT as usize] {
-            document.move_caret(CaretDirection::Left);
+            document.apply_input_left();
         }
         if input.edit_key_pressed[TM_UI_EDIT_KEY_RIGHT as usize] {
-            document.move_caret(CaretDirection::Right);
+            document.apply_input_right();
         }
         if input.edit_key_pressed[TM_UI_EDIT_KEY_UP as usize] {
-            document.move_caret(CaretDirection::Up);
+            document.apply_input_up();
         }
         if input.edit_key_pressed[TM_UI_EDIT_KEY_DOWN as usize] {
-            document.move_caret(CaretDirection::Down);
+            document.apply_input_down();
         }
 
         if input.edit_key_pressed[TM_UI_EDIT_KEY_DELETE as usize] {
