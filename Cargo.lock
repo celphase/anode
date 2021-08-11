@@ -568,6 +568,7 @@ dependencies = [
  "const-cstr",
  "machinery",
  "machinery-api",
+ "tree-sitter",
 ]
 
 [[package]]

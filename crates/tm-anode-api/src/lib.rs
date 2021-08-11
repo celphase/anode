@@ -1,6 +1,7 @@
 use const_cstr::{const_cstr, ConstCStr};
 use machinery::{identifier, Identifier};
 use machinery_api::{foundation::ApplicationO, plugins::ui::DockingFindTabOptT, Api};
+use tree_sitter::Language;
 
 /// Anode editor API.
 #[repr(C)]
@@ -33,20 +34,11 @@ pub const ASPECT_ANODE: Identifier = identifier!("tm_anode_aspect_i");
 ///
 /// [1]: https://tree-sitter.github.io
 pub struct Highlighting {
-    pub language: *const TSLanguage,
+    pub language: Language,
     pub highlight_query: *const u8,
     pub highlight_query_len: usize,
     pub injection_query: *const u8,
     pub injection_query_len: usize,
     pub locals_query: *const u8,
     pub locals_query_len: usize,
-}
-
-/// Opaque raw TSLanguage.
-///
-/// A pointer to this can be transmuted to and from tree-sitter's `Language`.
-/// This is provided so that tree-sitter doesn't have to be depended on directly.
-#[repr(C)]
-pub struct TSLanguage {
-    _opaque: [u8; 0],
 }

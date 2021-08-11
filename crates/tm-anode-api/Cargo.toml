@@ -10,3 +10,4 @@ edition = "2018"
 const-cstr = "0.3.0"
 machinery = "0.10.0"
 machinery-api = "0.3.0"
+tree-sitter = "=0.19.3" # newer version currently incompatible with highlighting

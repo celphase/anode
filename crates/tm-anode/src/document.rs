@@ -428,7 +428,7 @@ unsafe fn higlight_config_from_raw(
         std::slice::from_raw_parts(highlighting.locals_query, highlighting.locals_query_len);
 
     let mut highlight_config = HighlightConfiguration::new(
-        std::mem::transmute(highlighting.language),
+        highlighting.language,
         std::str::from_utf8(highlight_query).unwrap(),
         std::str::from_utf8(injection_query).unwrap(),
         std::str::from_utf8(locals_query).unwrap(),
