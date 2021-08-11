@@ -13,6 +13,9 @@ pub struct AnodeApi {
     pub open_asset: unsafe extern "C" fn(app: *mut ApplicationO, opt: *const DockingFindTabOptT),
 }
 
+unsafe impl Send for AnodeApi {}
+unsafe impl Sync for AnodeApi {}
+
 impl Api for AnodeApi {
     const NAME: ConstCStr = const_cstr!("tm_anode_api");
 }
@@ -24,6 +27,9 @@ pub struct AnodeAspectI {
     /// Highlighting language description.
     pub highlighting: *const Highlighting,
 }
+
+unsafe impl Send for AnodeAspectI {}
+unsafe impl Sync for AnodeAspectI {}
 
 pub const ASPECT_ANODE: Identifier = identifier!("tm_anode_aspect_i");
 
@@ -42,3 +48,6 @@ pub struct Highlighting {
     pub locals_query: *const u8,
     pub locals_query_len: usize,
 }
+
+unsafe impl Send for Highlighting {}
+unsafe impl Sync for Highlighting {}
