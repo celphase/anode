@@ -1,6 +1,10 @@
 use const_cstr::{const_cstr, ConstCStr};
 use machinery::{identifier, Identifier};
-use machinery_api::{foundation::ApplicationO, plugins::ui::DockingFindTabOptT, Api};
+use machinery_api::{
+    foundation::{ApplicationO, VersionT},
+    plugins::ui::DockingFindTabOptT,
+    Api,
+};
 use tree_sitter::Language;
 
 /// Anode editor API.
@@ -18,6 +22,11 @@ unsafe impl Sync for AnodeApi {}
 
 impl Api for AnodeApi {
     const NAME: ConstCStr = const_cstr!("tm_anode_api");
+    const VERSION: VersionT = VersionT {
+        major: 0,
+        minor: 1,
+        patch: 0,
+    };
 }
 
 /// Aspect for assets opened in an anode editor.

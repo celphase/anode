@@ -18,7 +18,7 @@ use machinery_api::{
             TM_UI_EDIT_KEY_UP, TM_UI_METRIC_SCROLLBAR_WIDTH, TM_UI_MODIFIERS_CTRL,
         },
     },
-    the_machinery::{TabCreateContextT, TheMachineryTabVt},
+    the_machinery::TabCreateContextT,
 };
 use tracing::{event, Level};
 use tree_sitter_highlight::HighlightEvent;
@@ -30,19 +30,16 @@ use crate::{
     plugin::{AnodePlugin, PluginData},
 };
 
-pub fn create_vtable() -> TheMachineryTabVt {
-    TheMachineryTabVt {
-        super_: TabVt {
-            name: ANODE_CODE_EDITOR_TAB.name.as_ptr(),
-            name_hash: ANODE_CODE_EDITOR_TAB.hash,
-            create: Some(AnodePlugin::code_editor_create),
-            destroy: Some(code_editor_destroy),
-            title: Some(CodeEditorTab::title),
-            ui: Some(CodeEditorTab::ui),
-            set_root: Some(CodeEditorTab::set_root),
-            root: Some(CodeEditorTab::root),
-            ..Default::default()
-        },
+pub fn create_vtable() -> TabVt {
+    TabVt {
+        name: ANODE_CODE_EDITOR_TAB.name.as_ptr(),
+        name_hash: ANODE_CODE_EDITOR_TAB.hash,
+        create: Some(AnodePlugin::code_editor_create),
+        destroy: Some(code_editor_destroy),
+        title: Some(CodeEditorTab::title),
+        ui: Some(CodeEditorTab::ui),
+        set_root: Some(CodeEditorTab::set_root),
+        root: Some(CodeEditorTab::root),
         ..Default::default()
     }
 }

@@ -10,10 +10,10 @@ crate-type = ["cdylib"]
 const-cstr = "0.3.0"
 eyre = "0.6.5"
 font-kit = "0.10.1"
-machinery = "0.10.0"
-machinery-api = "0.3.0"
-tree-sitter = "=0.19.3" # newer version currently incompatible with highlighting
-tree-sitter-highlight = "0.19.2"
+machinery = "0.12.0"
+machinery-api = "0.5.0"
+tree-sitter = "0.20.0"
+tree-sitter-highlight = "0.20.0"
 tracing = "0.1.26"
 ultraviolet = { version = "0.8.1", features = ["int"] }
 tm-anode-api = { path = "../tm-anode-api" }

@@ -1,12 +1,13 @@
 use std::ffi::CString;
 
+use const_cstr::const_cstr;
 use font_kit::{
     family_name::FamilyName, handle::Handle, properties::Properties, source::SystemSource,
 };
 use machinery::{identifier, Identifier, RegistryStorage};
 use machinery_api::{
     foundation::ApiRegistryApi,
-    plugins::ui::{FontDescriptorT, FontProviderT, TtfRangeT, TM_FONT_PROVIDER_INTERFACE_NAME},
+    plugins::ui::{FontDescriptorT, FontProviderT, TtfRangeT, TM_FONT_PROVIDER_T_VERSION},
 };
 
 pub fn register(registry: &ApiRegistryApi, registry_storage: &mut RegistryStorage) {
@@ -49,7 +50,8 @@ pub fn register(registry: &ApiRegistryApi, registry_storage: &mut RegistryStorag
 
         registry_storage.add_implementation(
             registry,
-            TM_FONT_PROVIDER_INTERFACE_NAME.as_ptr() as *const i8,
+            const_cstr!("tm_font_provider_t").as_ptr(),
+            TM_FONT_PROVIDER_T_VERSION,
             provider,
         );
     }

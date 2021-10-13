@@ -12,13 +12,13 @@ use machinery::{
 use machinery_api::{
     foundation::{
         ApiRegistryApi, ApplicationO, TheTruthApi, TheTruthO, TheTruthPropertyDefinitionT, TtIdT,
-        TtUndoScopeT, UiO, TM_THE_TRUTH_CREATE_TYPES_INTERFACE_NAME,
-        TM_THE_TRUTH_PROPERTY_TYPE_BUFFER, TM_TT_ASPECT__FILE_EXTENSION,
+        TtUndoScopeT, UiO, TM_THE_TRUTH_CREATE_TYPES_I_VERSION, TM_THE_TRUTH_PROPERTY_TYPE_BUFFER,
+        TM_TT_ASPECT__FILE_EXTENSION,
     },
     plugins::{
         editor_views::{
             AssetBrowserCreateAssetI, AssetBrowserCreateAssetO,
-            TM_ASSET_BROWSER_CREATE_ASSET_INTERFACE_NAME,
+            TM_ASSET_BROWSER_CREATE_ASSET_I_VERSION,
         },
         the_machinery_shared::{AssetOpenAspectI, AssetOpenMode, TM_TT_ASPECT__ASSET_OPEN},
         ui::{DockingFindTabOptT, TabI},
@@ -47,7 +47,8 @@ impl Plugin for TextFilePlugin {
             // Register type creation in the truth
             registry_storage.add_raw_implementation(
                 &*registry,
-                TM_THE_TRUTH_CREATE_TYPES_INTERFACE_NAME.as_ptr() as *const i8,
+                const_cstr!("tm_the_truth_create_types_i").as_ptr(),
+                TM_THE_TRUTH_CREATE_TYPES_I_VERSION,
                 Self::truth_create_types as *const c_void,
             );
 
@@ -61,7 +62,8 @@ impl Plugin for TextFilePlugin {
 
             registry_storage.add_implementation(
                 &*registry,
-                TM_ASSET_BROWSER_CREATE_ASSET_INTERFACE_NAME.as_ptr() as *const i8,
+                const_cstr!("tm_asset_browser_create_asset_i").as_ptr(),
+                TM_ASSET_BROWSER_CREATE_ASSET_I_VERSION,
                 create_asset,
             );
 
@@ -89,7 +91,7 @@ impl TextFilePlugin {
         // Create the truth type for the asset
         let properties = vec![TheTruthPropertyDefinitionT {
             name: const_cstr!("data").as_ptr(),
-            type_: TM_THE_TRUTH_PROPERTY_TYPE_BUFFER as u32,
+            type_: TM_THE_TRUTH_PROPERTY_TYPE_BUFFER,
             ..Default::default()
         }];
 

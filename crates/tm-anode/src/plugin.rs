@@ -71,6 +71,7 @@ impl Plugin for AnodePlugin {
             });
             registry.set(
                 AnodeApi::NAME.as_ptr(),
+                AnodeApi::VERSION,
                 api as *const _,
                 size_of::<AnodeApi>() as u32,
             );
