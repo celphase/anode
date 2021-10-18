@@ -24,8 +24,8 @@ impl Api for AnodeApi {
     const NAME: ConstCStr = const_cstr!("tm_anode_api");
     const VERSION: VersionT = VersionT {
         major: 0,
-        minor: 1,
-        patch: 0,
+        minor: 6,
+        patch: 1,
     };
 }
 

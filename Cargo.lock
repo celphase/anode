@@ -583,7 +583,7 @@ dependencies = [
 
 [[package]]
 name = "tm-anode-api"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "const-cstr",
  "machinery",
